@@ -1,1 +1,4 @@
+*.dSYM/
 main
+client
+server

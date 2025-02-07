@@ -1,0 +1,624 @@
+cscope 15 $HOME/Developer/tcp               0000003234
+	@client.c
+
+2 
+	~<Ãtš‘/š.h
+>
+
+3 
+	~<¡dio.h
+>
+
+4 
+	~<¡dlib.h
+>
+
+6 
+	$maš
+(
+¬gc
+, *
+¬gv
+[]) {
+
+7 ià(
+¬gc
+ < 2) {
+
+8 
+	`´štf
+("usage: client…ort");
+
+9 
+	`ex™
+(1);
+
+12 
+š_pÜt_t
+ 
+pÜt
+ = 
+	`©oi
+(
+¬gv
+[1]);
+
+13 
+	`´štf
+("E¡ablishšg cÚÃùiÚØloÿlho¡:%hu...\n", 
+pÜt
+);
+
+16 
+sockfd
+ = 
+	`sock‘
+(
+PF_INET
+, 
+SOCK_STREAM
+, 0);
+
+17 ià(
+sockfd
+ < 0) {
+
+18 
+	`³¼Ü
+("socket");
+
+19 
+	`ex™
+(1);
+
+22 
+sockaddr_š
+ 
+addr
+ = {
+
+23 .
+sš_çmžy
+ = 
+AF_INET
+,
+
+24 .
+sš_pÜt
+ = 
+	`htÚs
+(
+pÜt
+),
+
+25 .
+sš_addr
+.
+s_addr
+ = 
+	`htÚl
+(
+INADDR_ANY
+),
+
+27 
+sockËn_t
+ 
+addr_Ën
+ = (
+addr
+);
+
+28 ià(
+	`cÚÃù
+(
+sockfd
+, (
+sockaddr
+ *)&
+addr
+, 
+addr_Ën
+) < 0) {
+
+29 
+	`³¼Ü
+("connect");
+
+33 
+	`shutdown
+(
+sockfd
+, 
+SHUT_RDWR
+);
+
+78 
+	}
+}
+
+	@main.c
+
+1 
+	~<¬·/š‘.h
+>
+
+2 
+	~<Ãtš‘/š.h
+>
+
+3 
+	~<Ãtš‘/.h
+>
+
+4 
+	~<¡ddef.h
+>
+
+5 
+	~<¡dio.h
+>
+
+6 
+	~<¡dlib.h
+>
+
+7 
+	~<¡ršg.h
+>
+
+8 
+	~<sys/sock‘.h
+>
+
+9 
+	~<sys/ty³s.h
+>
+
+11 
+	$maš
+() {
+
+12 
+sockfd
+ = 
+	`sock‘
+(
+PF_INET
+, 
+SOCK_RAW
+, 
+IPPROTO_TCP
+);
+
+13 ià(
+sockfd
+ < 0) {
+
+14 
+	`³¼Ü
+("socket");
+
+15 
+	`ex™
+(1);
+
+18 
+hšþ
+ = 1;
+
+19 ià(
+	`£tsockÝt
+(
+sockfd
+, 
+IPPROTO_IP
+, 
+IP_HDRINCL
+, &
+hšþ
+, (hincl)) < 0) {
+
+20 
+	`³¼Ü
+("setsocketopt");
+
+21 
+	`ex™
+(1);
+
+24 
+sockaddr_š
+ 
+Çme
+ = {
+
+25 .
+sš_çmžy
+ = 
+AF_INET
+,
+
+26 .
+sš_pÜt
+ = 
+	`htÚs
+(7000),
+
+27 .
+sš_addr
+.
+s_addr
+ = 
+	`htÚl
+(
+INADDR_LOOPBACK
+),
+
+29 
+sockËn_t
+ 
+Çm–’
+ = (
+Çme
+);
+
+30 ià(
+	`bšd
+(
+sockfd
+, (
+sockaddr
+ *)&
+Çme
+, 
+Çm–’
+) < 0) {
+
+31 
+	`³¼Ü
+("bind");
+
+32 
+	`ex™
+(1);
+
+35 
+size_t
+ 
+buæ’
+ = () * 4096;
+
+36 *
+buf
+ = (*)
+	`m®loc
+(
+buæ’
+);
+
+37 
+	`mem£t
+(
+buf
+, 0, 
+buæ’
+);
+
+38 
+sockaddr_š
+ 
+addr
+;
+
+39 
+sockËn_t
+ 
+add¾’
+ = (
+addr
+);
+
+41 
+buæ’
+ = 
+	`»cväom
+(
+sockfd
+, 
+buf
+, buæ’, 0, (
+sockaddr
+ *)&
+addr
+, &
+add¾’
+);
+
+42 ià(
+buæ’
+ < 0) {
+
+43 
+	`´štf
+("Nothingo„ead.\n");
+
+44 
+	`ex™
+(1);
+
+47 
+	`´štf
+("Reûived: %s\n", 
+buf
+);
+
+49 
+	`shutdown
+(
+sockfd
+, 
+SHUT_RDWR
+);
+
+52 
+	}
+}
+
+	@server.c
+
+1 
+	~<Ãtš‘/š.h
+>
+
+2 
+	~<¡dio.h
+>
+
+3 
+	~<¡dlib.h
+>
+
+4 
+	~<sys/sock‘.h
+>
+
+5 
+	~<uni¡d.h
+>
+
+7 
+	$maš
+(
+¬gc
+, *
+¬gv
+[]) {
+
+8 ià(
+¬gc
+ < 2) {
+
+9 
+	`´štf
+("usage: server…ort");
+
+10 
+	`ex™
+(1);
+
+13 
+š_pÜt_t
+ 
+pÜt
+ = 
+	`©oi
+(
+¬gv
+[1]);
+
+15 
+sockfd
+ = 
+	`sock‘
+(
+PF_INET
+, 
+SOCK_STREAM
+, 0);
+
+16 ià(
+sockfd
+ < 0) {
+
+17 
+	`³¼Ü
+("socket");
+
+18 
+	`ex™
+(1);
+
+21 
+»u£
+ = 1;
+
+22 ià(
+	`£tsockÝt
+(
+sockfd
+, 
+SOL_SOCKET
+, 
+SO_REUSEADDR
+, &
+»u£
+, (reuse)) < 0) {
+
+23 
+	`³¼Ü
+("setsockopt");
+
+24 
+	`ex™
+(1);
+
+26 ià(
+	`£tsockÝt
+(
+sockfd
+, 
+SOL_SOCKET
+, 
+SO_REUSEPORT
+, &
+»u£
+, (reuse)) < 0) {
+
+27 
+	`³¼Ü
+("setsockopt");
+
+28 
+	`ex™
+(1);
+
+31 
+sockaddr_š
+ 
+addr
+ = {
+
+32 .
+sš_çmžy
+ = 
+AF_INET
+,
+
+33 .
+sš_pÜt
+ = 
+	`htÚs
+(
+pÜt
+),
+
+34 .
+sš_addr
+.
+s_addr
+ = 
+	`htÚl
+(
+INADDR_ANY
+),
+
+36 
+sockËn_t
+ 
+addr_Ën
+ = (
+addr
+);
+
+37 ià(
+	`bšd
+(
+sockfd
+, (
+sockaddr
+ *)&
+addr
+, 
+addr_Ën
+) < 0) {
+
+38 
+	`³¼Ü
+("bind");
+
+39 
+	`ex™
+(1);
+
+42 ià(
+	`li¡’
+(
+sockfd
+, 1) < 0) {
+
+43 
+	`³¼Ü
+("listen");
+
+44 
+	`ex™
+(1);
+
+47 
+	`´štf
+("S¹šg s”v” oÀpÜˆ%hu.\n", 
+pÜt
+);
+
+49 
+sockaddr_š
+ 
+þ›Á_addr
+;
+
+50 
+sockËn_t
+ 
+þ›Á_addr_Ën
+ = (
+þ›Á_addr
+);
+
+51 ià(
+	`acû±
+(
+sockfd
+, (
+sockaddr
+ *)&
+þ›Á_addr
+, &
+þ›Á_addr_Ën
+) < 0) {
+
+52 
+	`³¼Ü
+("accept");
+
+53 
+	`ex™
+(1);
+
+56 
+	`þo£
+(
+sockfd
+);
+
+57 
+	`shutdown
+(
+sockfd
+, 
+SHUT_RDWR
+);
+
+60 
+	}
+}
+
+	@
+1
+.
+0
+3
+25
+client.c
+main.c
+server.c

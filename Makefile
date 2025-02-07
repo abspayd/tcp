@@ -1,14 +1,19 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -Wpedantic -Waddress
-BIN = main
+CFLAGS = -std=c99 -fsanitize=address -Wall -Wextra -Wpedantic -Waddress -Wpadded -Werror -g
+TARGET = main
 
 .PHONY: all
-all: main
+all: $(TARGET)
 
-main: main.c
+$(TARGET): main.c
 	$(CC) $(CFLAGS) -o $@ $<
 
+client: client.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+server: server.c
+	$(CC) $(CFLAGS) -o $@ $<
 
 .PHONY: clean
 clean:
-	rm -f $(BIN)
+	rm -f $(TARGET)
