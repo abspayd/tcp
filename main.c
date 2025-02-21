@@ -10,9 +10,6 @@
 #include <unistd.h>
 
 int main(void) {
-
-    int testsock = socket(PF_PACKET, );
-
     int sockfd = socket(PF_INET, SOCK_RAW, IPPROTO_IP);
     if (sockfd < 0) {
         perror("socket");

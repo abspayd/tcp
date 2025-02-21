@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -std=c99 -fsanitize=address -Wall -Wextra -Wpedantic -Waddress -Wpadded -Werror -g
+CFLAGS = -std=c99 -fsanitize=address -Wall -Wextra -Wpedantic -Wpadded -Werror -g
 TARGET = main
 
 .PHONY: all
@@ -14,6 +14,9 @@ client: client.c
 server: server.c
 	$(CC) $(CFLAGS) -o $@ $<
 
+tun: tun.c
+	$(CC) $(CFLAGS) -o $@ $<
+
 .PHONY: clean
 clean:
-	rm -f $(TARGET)
+	rm -f main server client tun

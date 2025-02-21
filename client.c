@@ -3,7 +3,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+void tun_client_test() {}
+
 int main(int argc, char *argv[]) {
+    tun_client_test();
+    /**
     if (argc < 2) {
         printf("usage: client port");
         exit(1);
@@ -33,6 +37,7 @@ int main(int argc, char *argv[]) {
     shutdown(sockfd, SHUT_RDWR);
 
     return 0;
+    */
 
     // int hincl = 1;
     // if (setsockopt(sockfd, IPPROTO_IP, IP_HDRINCL, &hincl, sizeof(hincl)) < 0) {
