@@ -108,9 +108,14 @@ int set_addr(int nl_sock, const char *dev, const char *ip_addr, int prefix_len) 
     return 0;
 }
 
-int link_up(int nl_sock) {
+int link_up(int nl_sock, const char *dev) {
+    struct {
+        struct nlmsghdr hd;   // netlink header
+        struct ifinfomsg ifi; // interface info
+        char attrbuf[512];
+    } req;
+    struct rtattr *rta;
 
-    ;
     return 0;
 }
 
