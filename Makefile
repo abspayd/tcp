@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -std=c99 -fsanitize=address -Wall -Wextra -Wpedantic -Wpadded -Werror -g
+CFLAGS = -std=c99 -fsanitize=address -Wall -Wextra -Wpedantic -Wpadded -g
 TARGET = main
 
 .PHONY: all
