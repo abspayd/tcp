@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <features.h>
 #include <linux/if.h>
 #include <linux/if_link.h>
 #include <linux/if_tun.h>
@@ -7,12 +8,12 @@
 #include <linux/rtnetlink.h>
 #include <net/if.h>
 #include <netinet/in.h>
+#include <netinet/ip.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #define DEVICE_NAME "tun0"
@@ -202,20 +203,45 @@ void dump_ipv4(unsigned char *buf, size_t buf_len) {
         return;
     }
 
+    struct iphdr *ip_header = (struct iphdr *)buf;
+    printf("version: %u, ihl: %u\n", ip_header->version, ip_header->ihl);
+    printf("tos: 0x%02X (DSCP: %u, ECN: %u)\n", ip_header->tos, IPTOS_DSCP(ip_header->tos) >> 2,
+           IPTOS_ECN(ip_header->tos));
+    printf("total len: %u\n", ip_header->tot_len);
+
+    struct in_addr source_addr = {.s_addr = ip_header->saddr};
+    char source_addr_str[INET_ADDRSTRLEN];
+    if (inet_ntop(AF_INET, &source_addr, source_addr_str, INET_ADDRSTRLEN) < 0) {
+        printf("Unable to stringify address\n");
+        return;
+    }
+    printf("source: %s\n", source_addr_str);
+    struct in_addr destination_addr = {.s_addr = ip_header->daddr};
+    char destination_addr_str[INET_ADDRSTRLEN];
+    if (inet_ntop(AF_INET, &destination_addr, destination_addr_str, INET_ADDRSTRLEN) < 0) {
+        printf("Unable to stringify address\n");
+        return;
+    }
+    printf("dest: %s\n", destination_addr_str);
+
+    /*
+    printf("=== Hard way: ===\n");
     memset(&inet_packet, 0, sizeof(inet_packet));
-    inet_packet.version = ((uint8_t)buf[0]) >> 4;
-    inet_packet.ihl = (uint8_t)buf[0] & 0x0F;
-    inet_packet.dscp = ((uint8_t)buf[1]) >> 2;
-    inet_packet.ecn = (uint8_t)buf[1] & 0x03;
-    inet_packet.total_length = (uint16_t)((uint8_t)buf[2] | (uint8_t)buf[3]);
-    inet_packet.identification = (uint16_t)((uint8_t)buf[4] | (uint8_t)buf[5]);
-    inet_packet.flags = ((uint8_t)buf[6]) >> 5;
-    inet_packet.fragment_offset = (uint16_t)(((uint8_t)buf[6] & 0x1F) | (uint8_t)buf[7]);
-    inet_packet.ttl = (uint8_t)buf[8];
-    inet_packet.protocol = (uint8_t)buf[9];
-    inet_packet.header_checksum = (uint16_t)((uint8_t)buf[10] | (uint8_t)buf[11]);
-    inet_packet.source_addr = (uint32_t)((uint8_t)buf[12] | (uint8_t)buf[13] | (uint8_t)buf[14] | (uint8_t)buf[15]);
-    inet_packet.source_addr = (uint32_t)((uint8_t)buf[16] | (uint8_t)buf[17] | (uint8_t)buf[18] | (uint8_t)buf[19]);
+    inet_packet.version = (buf[0]) >> 4;
+    inet_packet.ihl = buf[0] & 0x0F;
+    inet_packet.dscp = (buf[1]) >> 2;
+    inet_packet.ecn = buf[1] & 0x03;
+    inet_packet.total_length = (((uint16_t)buf[2] << 4) + buf[3]);
+    inet_packet.identification = (((uint16_t)buf[4] << 4) + buf[5]);
+    inet_packet.flags = (buf[6]) >> 5;
+    inet_packet.fragment_offset = (((uint16_t)(buf[6] & 0x1F) << 4) + buf[7]);
+    inet_packet.ttl = buf[8];
+    inet_packet.protocol = buf[9];
+    inet_packet.header_checksum = (((uint16_t)buf[10] << 4) + buf[11]);
+    inet_packet.source_addr =
+        (((uint32_t)buf[12] << 24) + ((uint32_t)buf[13] << 16) + ((uint32_t)buf[14] << 8) + buf[15]);
+    inet_packet.dest_addr =
+        (((uint32_t)buf[16] << 24) + ((uint32_t)buf[17] << 16) + ((uint32_t)buf[18] << 8) + buf[19]);
 
     printf("version: %d, IHL: %d\n", inet_packet.version, inet_packet.ihl);
     printf("DSCP: %d, ECN: %d\n", inet_packet.dscp, inet_packet.ecn);
@@ -226,7 +252,7 @@ void dump_ipv4(unsigned char *buf, size_t buf_len) {
     printf("header checksum: 0x%04X\n", inet_packet.header_checksum);
 
     struct in_addr src_addr = {
-        .s_addr = inet_packet.source_addr,
+        .s_addr = ntohl(inet_packet.source_addr),
     };
     char src_addr_str[INET_ADDRSTRLEN];
     if (inet_ntop(AF_INET, &src_addr, src_addr_str, INET_ADDRSTRLEN) <= 0) {
@@ -235,7 +261,7 @@ void dump_ipv4(unsigned char *buf, size_t buf_len) {
     }
 
     struct in_addr dest_addr = {
-        .s_addr = inet_packet.dest_addr,
+        .s_addr = ntohl(inet_packet.dest_addr),
     };
     char dest_addr_str[INET_ADDRSTRLEN];
     if (inet_ntop(AF_INET, &dest_addr, dest_addr_str, INET_ADDRSTRLEN) <= 0) {
@@ -244,9 +270,8 @@ void dump_ipv4(unsigned char *buf, size_t buf_len) {
     }
 
     printf("source address: %s\n", src_addr_str);
-    printf("dest address: %s\n", dest_addr_str);
-    //
-    //
+    printf("dest address: %s\n", destination_addr_str);
+    */
 }
 
 void packet_dump(unsigned char *buf, size_t buf_len) {
@@ -278,6 +303,7 @@ int main(void) {
         }
         printf("== %zu bytes received ==\n", count);
         packet_dump(buffer, count);
+        printf("\n");
     }
 
     // for (int i = 1; i <= 20; ++i) {
