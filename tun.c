@@ -11,6 +11,7 @@
 #include <netinet/ip.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
@@ -182,23 +183,7 @@ static int nl_configure(int tun_fd, const char *dev) {
 }
 
 void dump_ipv4(unsigned char *buf, size_t buf_len) {
-    struct {
-        uint8_t version;
-        uint8_t ihl;
-        uint8_t dscp;
-        uint8_t ecn;
-        uint16_t total_length;
-        uint16_t identification;
-        uint8_t flags;
-        uint16_t fragment_offset;
-        uint8_t ttl;
-        uint8_t protocol;
-        uint16_t header_checksum;
-        uint32_t source_addr;
-        uint32_t dest_addr;
-    } inet_packet;
-
-    if (buf_len < sizeof(inet_packet)) {
+    if (buf_len < sizeof(struct iphdr)) {
         printf("Buffer too small for IP packet\n");
         return;
     }
@@ -224,54 +209,68 @@ void dump_ipv4(unsigned char *buf, size_t buf_len) {
     }
     printf("dest: %s\n", destination_addr_str);
 
+    if (ip_header->ihl > 5) {
+        printf("Need to consider options section for this.\n");
+    }
+}
+
+void dump_tcp(unsigned char *buf, size_t buf_len) {
+
+    struct tcp_hdr {
+        uint16_t s_port;
+        uint16_t d_port;
+        uint32_t seq;
+        uint32_t ack;
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+        uint8_t reserved : 4;
+        uint8_t data_offset : 4;
+#else
+        uint8_t data_offset : 4;
+        uint8_t reserved : 4;
+#endif
+        uint8_t flags;
+        uint16_t window;
+        uint16_t checksum;
+        uint16_t urgent_ptr;
+    };
+
+    struct iphdr *ip_header = (struct iphdr *)buf;
+
+    if (ip_header->ihl > 5) {
+        printf("Handle options!!!\n");
+        return;
+    }
+
+    struct tcp_hdr *tcp_header = (struct tcp_hdr *)&buf[ip_header->ihl * 4];
     /*
-    printf("=== Hard way: ===\n");
-    memset(&inet_packet, 0, sizeof(inet_packet));
-    inet_packet.version = (buf[0]) >> 4;
-    inet_packet.ihl = buf[0] & 0x0F;
-    inet_packet.dscp = (buf[1]) >> 2;
-    inet_packet.ecn = buf[1] & 0x03;
-    inet_packet.total_length = (((uint16_t)buf[2] << 4) + buf[3]);
-    inet_packet.identification = (((uint16_t)buf[4] << 4) + buf[5]);
-    inet_packet.flags = (buf[6]) >> 5;
-    inet_packet.fragment_offset = (((uint16_t)(buf[6] & 0x1F) << 4) + buf[7]);
-    inet_packet.ttl = buf[8];
-    inet_packet.protocol = buf[9];
-    inet_packet.header_checksum = (((uint16_t)buf[10] << 4) + buf[11]);
-    inet_packet.source_addr =
-        (((uint32_t)buf[12] << 24) + ((uint32_t)buf[13] << 16) + ((uint32_t)buf[14] << 8) + buf[15]);
-    inet_packet.dest_addr =
-        (((uint32_t)buf[16] << 24) + ((uint32_t)buf[17] << 16) + ((uint32_t)buf[18] << 8) + buf[19]);
-
-    printf("version: %d, IHL: %d\n", inet_packet.version, inet_packet.ihl);
-    printf("DSCP: %d, ECN: %d\n", inet_packet.dscp, inet_packet.ecn);
-    printf("total length: %d\n", inet_packet.total_length);
-    printf("identification: 0x%04X (%d)\n", inet_packet.identification, inet_packet.identification);
-    printf("flags: 0x%X, fragment offset: %d\n", inet_packet.flags, inet_packet.fragment_offset);
-    printf("ttl: %d, protocol: %d\n", inet_packet.ttl, inet_packet.protocol);
-    printf("header checksum: 0x%04X\n", inet_packet.header_checksum);
-
-    struct in_addr src_addr = {
-        .s_addr = ntohl(inet_packet.source_addr),
-    };
-    char src_addr_str[INET_ADDRSTRLEN];
-    if (inet_ntop(AF_INET, &src_addr, src_addr_str, INET_ADDRSTRLEN) <= 0) {
-        printf("Invalid source address\n");
-        return;
-    }
-
-    struct in_addr dest_addr = {
-        .s_addr = ntohl(inet_packet.dest_addr),
-    };
-    char dest_addr_str[INET_ADDRSTRLEN];
-    if (inet_ntop(AF_INET, &dest_addr, dest_addr_str, INET_ADDRSTRLEN) <= 0) {
-        printf("Invalid destination address\n");
-        return;
-    }
-
-    printf("source address: %s\n", src_addr_str);
-    printf("dest address: %s\n", destination_addr_str);
+    tcp_header->s_port = ntohs(tcp_header->s_port);
+    tcp_header->d_port = ntohs(tcp_header->d_port);
+    tcp_header->seq = ntohl(tcp_header->seq);
+    tcp_header->ack = ntohl(tcp_header->ack);
+    tcp_header->data_offset = ntohs(tcp_header->data_offset);
+    tcp_header->reserved = ntohs(tcp_header->reserved);
+    // tcpheader->flags = tcp_header->flags;
+    tcp_header->window = ntohs(tcp_header->window);
+    tcp_header->checksum = ntohs(tcp_header->checksum);
+    tcp_header->urgent_ptr = ntohs(tcp_header->urgent_ptr);
     */
+
+    printf("== TCP header (%u bytes) ==\n", tcp_header->data_offset * 4);
+    printf("source port: %u, dest port: %u\n", ntohs(tcp_header->s_port), ntohs(tcp_header->d_port));
+    printf("seq: %u\n", ntohl(tcp_header->seq));
+    printf("ack: %u\n", ntohl(tcp_header->ack));
+    printf("data offset: %u, reserved: 0x%0X\n", tcp_header->data_offset, ntohs(tcp_header->reserved));
+    printf("flags (0x%02X):\n", tcp_header->flags);
+    printf("  CWR: %u\n", (tcp_header->flags & 0x80) >> 7);
+    printf("  ECE: %u\n", (tcp_header->flags & 0x40) >> 6);
+    printf("  URG: %u\n", (tcp_header->flags & 0x20) >> 5);
+    printf("  ACK: %u\n", (tcp_header->flags & 0x10) >> 4);
+    printf("  PSH: %u\n", (tcp_header->flags & 0x08) >> 3);
+    printf("  RST: %u\n", (tcp_header->flags & 0x04) >> 2);
+    printf("  SYN: %u\n", (tcp_header->flags & 0x02) >> 1);
+    printf("  FIN: %u\n", tcp_header->flags & 0x01);
+    printf("window: %u\n", ntohs(tcp_header->window));
+    printf("checksum: 0x%04X, urgent pointer: 0x%04X\n", ntohs(tcp_header->checksum), ntohs(tcp_header->urgent_ptr));
 }
 
 void packet_dump(unsigned char *buf, size_t buf_len) {
@@ -281,6 +280,8 @@ void packet_dump(unsigned char *buf, size_t buf_len) {
         return;
     }
     dump_ipv4(buf, buf_len);
+    printf("\n");
+    dump_tcp(buf, buf_len);
 }
 
 int main(void) {
