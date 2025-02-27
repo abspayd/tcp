@@ -1,22 +1,18 @@
 CC = gcc
-CFLAGS = -std=c99 -fsanitize=address -Wall -Wextra -Wpedantic -Wpadded -g
-TARGET = main
+CFLAGS = -std=c99 -I. -fsanitize=address -Wall -Wextra -Wpedantic -Wpadded -g
+TARGET = tcp
 
-.PHONY: all
-all: $(TARGET)
+ODIR = obj
 
-$(TARGET): main.c
+_OBJ = tcp.o tun.o
+OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
+
+tcp: $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $<
 
-client: client.c
-	$(CC) $(CFLAGS) -o $@ $<
-
-server: server.c
-	$(CC) $(CFLAGS) -o $@ $<
-
-tun: tun.c
-	$(CC) $(CFLAGS) -o $@ $<
+$(ODIR)/%.o: %.c %.h
+	$(CC) $(CFLAGS) -c $@ $<
 
 .PHONY: clean
 clean:
-	rm -f main server client tun
+	rm -f $(ODIR)/*.o
