@@ -1,5 +1,3 @@
 *.dSYM/
-main
-client
-server
-tun
+obj/
+tcp
