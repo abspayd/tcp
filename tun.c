@@ -1,22 +1,13 @@
-#include "tcp.h"
+#include "include/tun.h"
+#include "include/tcp.h"
 #include <arpa/inet.h>
 #include <fcntl.h>
-#include <features.h>
 #include <linux/if.h>
-#include <linux/if_link.h>
 #include <linux/if_tun.h>
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
-#include <net/if.h>
-#include <netinet/in.h>
 #include <netinet/ip.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <unistd.h>
 
 int tun_alloc(char *dev) {
     // ip tuntap add dev 'dev' mode tun
@@ -57,14 +48,14 @@ void dump_ipv4(unsigned char *buf, size_t buf_len) {
 
     struct in_addr source_addr = {.s_addr = ip_header->saddr};
     char source_addr_str[INET_ADDRSTRLEN];
-    if (inet_ntop(AF_INET, &source_addr, source_addr_str, INET_ADDRSTRLEN) < 0) {
+    if (inet_ntop(AF_INET, &source_addr, source_addr_str, INET_ADDRSTRLEN) == NULL) {
         printf("Unable to stringify address\n");
         return;
     }
     printf("source: %s\n", source_addr_str);
     struct in_addr destination_addr = {.s_addr = ip_header->daddr};
     char destination_addr_str[INET_ADDRSTRLEN];
-    if (inet_ntop(AF_INET, &destination_addr, destination_addr_str, INET_ADDRSTRLEN) < 0) {
+    if (inet_ntop(AF_INET, &destination_addr, destination_addr_str, INET_ADDRSTRLEN) == NULL) {
         printf("Unable to stringify address\n");
         return;
     }
@@ -76,6 +67,10 @@ void dump_ipv4(unsigned char *buf, size_t buf_len) {
 }
 
 void dump_tcp(unsigned char *buf, size_t buf_len) {
+    if (buf_len < sizeof(struct iphdr) + sizeof(struct tcp_hdr)) {
+        printf("Buffer too small for TCP segment\n");
+        return;
+    }
     struct iphdr *ip_header = (struct iphdr *)buf;
 
     if (ip_header->ihl > 5) {
@@ -112,37 +107,3 @@ void dump_packet(unsigned char *buf, size_t buf_len) {
     printf("\n");
     dump_tcp(buf, buf_len);
 }
-
-// int main(void) {
-//     char dev[IFNAMSIZ] = DEVICE_NAME;
-//     printf("alloc tun %s\n", dev);
-//     int tun_fd = tun_alloc(dev);
-//     if (tun_fd < 0) {
-//         perror("tun_alloc");
-//         return 1;
-//     }
-//
-//     printf("Listening to device %s\n", dev);
-//     const int BUFFER_LENGTH = 1024 * 4;
-//     unsigned char buffer[BUFFER_LENGTH];
-//     while (1) {
-//         ssize_t count = read(tun_fd, &buffer, 4096);
-//         if (count < 0) {
-//             perror("read");
-//             return 1;
-//         }
-//         printf("== %zu bytes received ==\n", count);
-//         dump_packet(buffer, count);
-//         printf("\n");
-//     }
-//
-//     // for (int i = 1; i <= 20; ++i) {
-//     //     printf("\rIdle: %ds", i);
-//     //     fflush(stdout);
-//     //     sleep(1);
-//     // }
-//     // printf("\n");
-//
-//     close(tun_fd);
-//     return 0;
-// }

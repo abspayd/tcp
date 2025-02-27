@@ -1,6 +1,8 @@
 #ifndef __TCP_H
 #define __TCP_H
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <stdint.h>
 
 struct tcp_hdr {
@@ -19,6 +21,13 @@ struct tcp_hdr {
     uint16_t window;
     uint16_t checksum;
     uint16_t urgent_ptr;
+};
+
+struct cksm_hdr {
+    in_addr_t source_ipaddr;
+    in_addr_t dest_ipaddr;
+    uint8_t protocol;
+    uint16_t total_length;
 };
 
 #define CWR_MASK 0x80
