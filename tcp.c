@@ -1,6 +1,8 @@
 #include "include/tcp.h"
 #include "include/tun.h"
+#include <arpa/inet.h>
 #include <linux/if.h>
+#include <netinet/in.h>
 #include <netinet/ip.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -35,17 +37,85 @@ int get_tcp_header(const char *buf, size_t buf_len, struct tcp_hdr **tcp_header)
     return 0;
 }
 
-uint16_t checksum(struct tcp_hdr *tcp_header) {
+uint16_t checksum(struct iphdr *ip_header, struct tcp_hdr *tcp_header) {
+    printf("TODO: verify this checksum: 0x%04X\n", ntohs(tcp_header->checksum));
+    uint16_t checksum = ntohs(tcp_header->checksum);
+    struct pseudo_hdr pseudo_header = {
+        .source_ipaddr = ntohl(ip_header->saddr),
+        .dest_ipaddr = ntohl(ip_header->daddr),
+        .protocol = ip_header->protocol,
+        .tcp_length = ntohs(ip_header->tot_len) - (ip_header->ihl * 4),
+    };
+    tcp_header->checksum = 0;
 
-    printf("TODO: verify this checksum: 0x%04X", ntohs(tcp_header->checksum));
+    const size_t BUFFER_LENGTH = (sizeof(struct pseudo_hdr) + pseudo_header.tcp_length) / 2;
+    uint16_t buf[BUFFER_LENGTH]; // buffer of 16-bit words for checksum
+    memset(&buf, 0, sizeof(buf));
+    memcpy(&buf, (uint16_t *)&pseudo_header, sizeof(pseudo_header));
+
+    // TODO: we still need the TCP content for checksum (make as param)
+
+    // memcpy(buf + sizeof(struct pseudo_hdr), (uint16_t)&tcp_header, );I
+
+    for (int i = 0; i < (int)BUFFER_LENGTH; ++i) {
+        if (i == 0 || i % 4 == 0) {
+            printf("\n");
+        }
+        printf("0x%04X ", buf[i]);
+    }
+    printf("\n");
+
+    // const size_t BUFFER_LENGTH = sizeof(struct pseudo_hdr) + pseudo_header.tcp_length;
+    // unsigned char buf[BUFFER_LENGTH];
+
+    // memset(&buf, 0, sizeof(buf));
+
+    // memcpy(&buf, (unsigned char *)&pseudo_header, sizeof(pseudo_header));
+    // printf("sizeof(buf)=%zu\n", sizeof(buf));
+
+    /*
+    printf("checksum buf:\n");
+    for (int i = 0; i < (int)BUFFER_LENGTH; i += 2) {
+        if (i > 0 && i % 8 == 0) {
+            printf("\n");
+        }
+        printf("0x%02X%02X ", buf[i], buf[i + 1]);
+    }
+    printf("\n");
+
+    printf("putting it together:\n");
+    for (int i = 0; i < (int)BUFFER_LENGTH; i += 2) {
+        if (i > 0 && i % 8 == 0) {
+            printf("\n");
+        }
+        uint16_t val = (buf[i] << 8) + buf[i + 1];
+        printf("0x%04X ", val);
+    }
+    printf("\n");
+
+    printf("~buf:\n");
+    for (int i = 0; i < (int)BUFFER_LENGTH; i += 2) {
+        if (i > 0 && i % 8 == 0) {
+            printf("\n");
+        }
+        uint16_t val = ~((buf[i] << 8) + buf[i + 1]);
+        uint32_t sum =
+        printf("0x%04X ", val);
+    }
+    printf("\n");
+    */
+
+    printf("pseudo header: \n");
+    printf("  source_ipaddr: %u (0x%0X)\n", pseudo_header.source_ipaddr, pseudo_header.source_ipaddr);
+    printf("  dest_ipaddr: %u (0x%0X)\n", pseudo_header.dest_ipaddr, pseudo_header.dest_ipaddr);
+    printf("  protocol: %u (0x%02X)\n", pseudo_header.protocol, pseudo_header.protocol);
+    printf("  tcp_length: %u (%u bytes)\n", pseudo_header.tcp_length, pseudo_header.tcp_length / 8);
     return 0;
 }
 
 void handle_packet(const char *buf, size_t buf_len) {
     struct iphdr *ip_header;
-    if (get_ip_header(buf, buf_len, &ip_header) < 0) {
-        printf("Uh-oh\n");
-    }
+    get_ip_header(buf, buf_len, &ip_header);
     if (ip_header->version != 4) {
         printf("IP version %d, ignoring...\n", ip_header->version);
         return;
@@ -53,7 +123,7 @@ void handle_packet(const char *buf, size_t buf_len) {
 
     struct tcp_hdr *tcp_header;
     get_tcp_header(buf, buf_len, &tcp_header);
-    checksum(tcp_header);
+    checksum(ip_header, tcp_header);
 }
 
 int main(void) {

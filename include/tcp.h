@@ -12,9 +12,9 @@ struct tcp_hdr {
     uint32_t ack;
 #if __BYTE_ORDER == __LITTLE_ENDIAN
     uint8_t reserved : 4;
-    uint8_t data_offset : 4;
+    uint8_t header_length : 4;
 #else
-    uint8_t data_offset : 4;
+    uint8_t header_length : 4;
     uint8_t reserved : 4;
 #endif
     uint8_t flags;
@@ -23,11 +23,12 @@ struct tcp_hdr {
     uint16_t urgent_ptr;
 };
 
-struct cksm_hdr {
-    in_addr_t source_ipaddr;
-    in_addr_t dest_ipaddr;
-    uint8_t protocol;
-    uint16_t total_length;
+// pseudo ip header for checksum
+struct pseudo_hdr {
+    uint32_t source_ipaddr;
+    uint32_t dest_ipaddr;
+    uint16_t protocol; // 1-byte (left-padded with 0s)
+    uint16_t tcp_length;
 };
 
 #define CWR_MASK 0x80

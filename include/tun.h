@@ -7,8 +7,8 @@
 int tun_alloc(char *dev);
 
 // packet debug dumps
-void dump_ip(unsigned char *buf, size_t buf_len);
-void dump_tcp(unsigned char *buf, size_t buf_len);
-void dump_packet(unsigned char *buf, size_t buf_len);
+// void dump_ip(unsigned char *buf, size_t buf_len);
+// void dump_tcp(unsigned char *buf, size_t buf_len);
+// void dump_packet(unsigned char *buf, size_t buf_len);
 
 #endif
