@@ -5,6 +5,8 @@
 #include <netinet/in.h>
 #include <stdint.h>
 
+#define TCP_PROTOCOL 6
+
 struct tcp_hdr {
     uint16_t s_port;
     uint16_t d_port;
@@ -12,9 +14,9 @@ struct tcp_hdr {
     uint32_t ack;
 #if __BYTE_ORDER == __LITTLE_ENDIAN
     uint8_t reserved : 4;
-    uint8_t header_length : 4;
+    uint8_t data_offset : 4;
 #else
-    uint8_t header_length : 4;
+    uint8_t data_offset : 4;
     uint8_t reserved : 4;
 #endif
     uint8_t flags;
@@ -27,7 +29,8 @@ struct tcp_hdr {
 struct pseudo_hdr {
     uint32_t source_ipaddr;
     uint32_t dest_ipaddr;
-    uint16_t protocol; // 1-byte (left-padded with 0s)
+    uint8_t zero;
+    uint8_t protocol;
     uint16_t tcp_length;
 };
 

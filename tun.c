@@ -79,11 +79,11 @@ void dump_tcp(unsigned char *buf, size_t buf_len) {
     }
 
     struct tcp_hdr *tcp_header = (struct tcp_hdr *)&buf[ip_header->ihl * 4];
-    printf("== TCP header (%u bytes) ==\n", tcp_header->header_length * 4);
+    printf("== TCP header (%u bytes) ==\n", tcp_header->data_offset * 4);
     printf("source port: %u, dest port: %u\n", ntohs(tcp_header->s_port), ntohs(tcp_header->d_port));
     printf("seq: %u\n", ntohl(tcp_header->seq));
     printf("ack: %u\n", ntohl(tcp_header->ack));
-    printf("header length: %u, reserved: 0x%0X\n", tcp_header->header_length, ntohs(tcp_header->reserved));
+    printf("header length: %u, reserved: 0x%0X\n", tcp_header->data_offset, ntohs(tcp_header->reserved));
     printf("flags (0x%02X):\n", tcp_header->flags);
     printf("  CWR: %u\n", CWR_FLG(tcp_header->flags));
     printf("  ECE: %u\n", ECE_FLG(tcp_header->flags));
