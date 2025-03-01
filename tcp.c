@@ -136,10 +136,6 @@ int main(void) {
         printf("== Received %zu bytes ==\n", count);
         handle_packet(buffer, count);
         printf("\n");
-
-        // printf("=== Received %zu bytes ===\n", count);
-        // dump_packet(buffer, count);
-        // printf("\n");
     }
 
     close(tun_fd);
