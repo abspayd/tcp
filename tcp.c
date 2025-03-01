@@ -74,11 +74,7 @@ uint16_t checksum(struct pseudo_hdr *pseudo_header, struct tcp_hdr *tcp_header, 
     while (sum >> 16) {
         sum = (sum & 0xFFFF) + (sum >> 16);
     }
-    uint16_t checksum = (uint16_t)~sum;
-
-    printf("Expect: %u (0x%04X)\n", ntohs(tcp_header->checksum), ntohs(tcp_header->checksum));
-    printf("Actual: %u (0x%04X)\n", ntohs(checksum), ntohs(checksum));
-    return checksum;
+    return (uint16_t)~sum;
 }
 
 void handle_packet(const char *buf, size_t buf_len) {
@@ -111,7 +107,11 @@ void handle_packet(const char *buf, size_t buf_len) {
         .tcp_length = htons(ntohs(ip_header->tot_len) - ((uint16_t)ip_header->ihl * 4)),
     };
     size_t payload_offset = (ip_header->ihl * 4) + sizeof(struct tcp_hdr);
-    checksum(&pseudo_header, tcp_header, (char *)(buf + payload_offset), buf_len - payload_offset);
+    uint16_t sum = checksum(&pseudo_header, tcp_header, (char *)(buf + payload_offset), buf_len - payload_offset);
+    if (sum != tcp_header->checksum) {
+        printf("Checksum validation failed\n");
+        return;
+    }
 }
 
 int main(void) {
