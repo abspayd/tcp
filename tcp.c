@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #define TUN_DEVICE "tun0"
 #define TUN_IP_ADDRESS "192.168.100.1"
@@ -19,6 +20,18 @@ int get_ip_header(const char *buf, size_t buf_len, struct iphdr **ip_header) {
         return -1;
     }
     *ip_header = (struct iphdr *)buf;
+    return 0;
+}
+
+uint16_t ip_checksum(struct iphdr *ip_header, char *options, size_t options_len) {
+    size_t buf_len = (ip_header->ihl * 4) + options_len;
+    char buf[options_len];
+    memset(buf, 0, buf_len);
+
+    for (int i = 0; i < buf_len; ++i) {
+        printf("0x%02X ", buf[i]);
+    }
+    printf("\n");
     return 0;
 }
 
@@ -37,7 +50,7 @@ static void tcp_dump(struct tcp_hdr *tcp_header) {
     printf("  seq: %u\n", ntohl(tcp_header->seq));
     printf("  ack: %u\n", ntohl(tcp_header->ack));
     printf("  data offset: %u, reserved: %u, flags: %u, window: %u\n", tcp_header->data_offset, tcp_header->reserved,
-           tcp_header->flags, ntohs(tcp_header->window));
+           tcp_header->flag_cwr, ntohs(tcp_header->window));
     printf("  checksum: %u, urg ptr: %u\n", ntohs(tcp_header->checksum), ntohs(tcp_header->urgent_ptr));
 }
 
@@ -77,6 +90,13 @@ uint16_t checksum(struct pseudo_hdr *pseudo_header, struct tcp_hdr *tcp_header, 
     return (uint16_t)~sum;
 }
 
+/**
+ * Construct a SYN-ACK packet into a buffer buf
+ *
+ * @return the size of the packet, or -1 if an error occurred
+ */
+ssize_t syn_ack(struct iphdr *ip_header, char *buf, size_t buf_len) { return -1; }
+
 void handle_packet(const char *buf, size_t buf_len) {
     struct iphdr *ip_header;
     if (get_ip_header(buf, buf_len, &ip_header) < 0) {
@@ -111,6 +131,16 @@ void handle_packet(const char *buf, size_t buf_len) {
     if (sum != tcp_header->checksum) {
         printf("Checksum validation failed\n");
         return;
+    }
+
+    if (tcp_header->flag_syn) {
+        // Send SYN-ACK
+
+        char resp_buf[MSS];
+        ssize_t resp_len = syn_ack(ip_header, resp_buf, buf_len);
+        if (resp_len > 0) {
+            printf("created packet, now I just need to send it...\n");
+        }
     }
 }
 

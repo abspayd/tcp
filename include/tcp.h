@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #define TCP_PROTOCOL 6
+#define MSS 536
 
 struct tcp_hdr {
     uint16_t s_port;
@@ -15,11 +16,27 @@ struct tcp_hdr {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
     uint8_t reserved : 4;
     uint8_t data_offset : 4;
+    uint8_t flag_fin : 1;
+    uint8_t flag_syn : 1;
+    uint8_t flag_rst : 1;
+    uint8_t flag_psh : 1;
+    uint8_t flag_ack : 1;
+    uint8_t flag_urg : 1;
+    uint8_t flag_ece : 1;
+    uint8_t flag_cwr : 1;
 #else
     uint8_t data_offset : 4;
     uint8_t reserved : 4;
+    uint8_t flag_cwr : 1;
+    uint8_t flag_ece : 1;
+    uint8_t flag_urg : 1;
+    uint8_t flag_ack : 1;
+    uint8_t flag_psh : 1;
+    uint8_t flag_rst : 1;
+    uint8_t flag_syn : 1;
+    uint8_t flag_fin : 1;
 #endif
-    uint8_t flags;
+    // uint8_t flags;
     uint16_t window;
     uint16_t checksum;
     uint16_t urgent_ptr;
