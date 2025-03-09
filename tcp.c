@@ -24,15 +24,33 @@ int get_ip_header(const char *buf, size_t buf_len, struct iphdr **ip_header) {
 }
 
 uint16_t ip_checksum(struct iphdr *ip_header, char *options, size_t options_len) {
-    size_t buf_len = (ip_header->ihl * 4) + options_len;
-    char buf[options_len];
+    if ((ip_header->ihl * 4) < sizeof(struct iphdr) + options_len) {
+        printf("Unable to get IP checksum: IHL too small!\n");
+        return 0;
+    }
+
+    size_t buf_len = (ip_header->ihl * 4);
+    char buf[buf_len];
     memset(buf, 0, buf_len);
 
-    for (int i = 0; i < buf_len; ++i) {
-        printf("0x%02X ", buf[i]);
+    memcpy(buf, (char *)ip_header, sizeof(struct iphdr));
+    if (options_len > 0) {
+        memcpy(buf + sizeof(struct iphdr), options, options_len);
     }
-    printf("\n");
-    return 0;
+    ((struct iphdr *)buf)->check = 0;
+
+    uint32_t sum = 0;
+    uint16_t *ptr = (uint16_t *)buf;
+    for (int i = 0; i < (int)buf_len / 2; ++i) {
+        sum += ptr[i];
+    }
+    if (buf_len % 2) {
+        sum += (uint16_t)(buf[buf_len - 1] << 8);
+    }
+    while (sum >> 16) {
+        sum = (sum & 0xFFFF) + (sum >> 16);
+    }
+    return (uint16_t)~sum;
 }
 
 int get_tcp_header(struct iphdr *ip_header, const char *buf, size_t buf_len, struct tcp_hdr **tcp_header) {
@@ -62,8 +80,8 @@ void pseudo_header_dump(struct pseudo_hdr *pseudo_header) {
     printf("  tcp length: %u\n", ntohs(pseudo_header->tcp_length));
 }
 
-uint16_t checksum(struct pseudo_hdr *pseudo_header, struct tcp_hdr *tcp_header, const char *payload,
-                  size_t payload_len) {
+uint16_t tcp_checksum(struct pseudo_hdr *pseudo_header, struct tcp_hdr *tcp_header, const char *payload,
+                      size_t payload_len) {
 
     size_t buf_len = sizeof(struct pseudo_hdr) + sizeof(struct tcp_hdr) + payload_len;
     unsigned char buf[buf_len];
@@ -78,7 +96,7 @@ uint16_t checksum(struct pseudo_hdr *pseudo_header, struct tcp_hdr *tcp_header, 
 
     uint32_t sum = 0;
     uint16_t *ptr = (uint16_t *)buf;
-    for (int i = 0; i < buf_len / 2; ++i) {
+    for (int i = 0; i < (int)buf_len / 2; ++i) {
         sum += ptr[i];
     }
     if (buf_len % 2) {
@@ -103,8 +121,22 @@ void handle_packet(const char *buf, size_t buf_len) {
         printf("Unable to get IP header\n");
         return;
     }
+
     if (ip_header->version != 4) {
         printf("IP version %d, ignoring...\n", ip_header->version);
+        return;
+    }
+
+    char *opts = NULL;
+    size_t opts_len = 0;
+    if ((ip_header->ihl * 4) > sizeof(struct iphdr)) {
+        opts = (char *)(buf + sizeof(struct iphdr));
+        opts_len = (ip_header->ihl * 4) - sizeof(struct iphdr);
+    }
+
+    uint16_t ip_sum = ip_checksum(ip_header, opts, opts_len);
+    if (ip_sum != ip_header->check) {
+        printf("IP checksum validation failed\n");
         return;
     }
 
@@ -127,7 +159,7 @@ void handle_packet(const char *buf, size_t buf_len) {
         .tcp_length = htons(ntohs(ip_header->tot_len) - ((uint16_t)ip_header->ihl * 4)),
     };
     size_t payload_offset = (ip_header->ihl * 4) + sizeof(struct tcp_hdr);
-    uint16_t sum = checksum(&pseudo_header, tcp_header, (char *)(buf + payload_offset), buf_len - payload_offset);
+    uint16_t sum = tcp_checksum(&pseudo_header, tcp_header, (char *)(buf + payload_offset), buf_len - payload_offset);
     if (sum != tcp_header->checksum) {
         printf("Checksum validation failed\n");
         return;
