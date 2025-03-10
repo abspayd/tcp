@@ -99,9 +99,45 @@ ssize_t syn_ack(struct iphdr *ip_header, char *buf, size_t buf_len) {
     return -1;
 }
 
-void unwrap_packet(const char *buf, size_t buf_len, struct tcp_ip_packet **packet) {
-    ;
-    return;
+// Unwrap a byte stream into a TCP/IP packet. Returns true if the byte stream contains
+// a valid TCP/IP packet and was unwrapped, and false otherwise.
+bool unwrap_packet(const char *buf, size_t buf_len, struct tcp_ip_packet **packet) {
+    if (buf_len < sizeof(struct iphdr) + sizeof(struct tcp_hdr)) {
+        return false;
+    }
+
+    memset(*packet, 0, sizeof(struct tcp_ip_packet));
+
+    memcpy((*packet)->ip_header, buf, sizeof(struct iphdr));
+    if ((*packet)->ip_header->version != 4) {
+        printf("Packet is not IPv4, skipping...\n");
+        return false;
+    }
+
+    if ((*packet)->ip_header->ihl * 4 > sizeof(struct iphdr)) {
+        size_t options_len = ((*packet)->ip_header->ihl * 4) - sizeof(struct iphdr);
+        char *ip_options = malloc(options_len);
+        (*packet)->ip_options_len = options_len;
+        memcpy(ip_options, buf + sizeof(struct iphdr), options_len);
+    }
+
+    uint16_t ip_sum = ip_checksum((*packet)->ip_header, (*packet)->ip_options, (*packet)->ip_options_len);
+    if (ip_sum != (*packet)->ip_header->check) {
+        free((*packet)->ip_options);
+        return false;
+    }
+
+    // TODO:
+    // 1. Get tcp header options and length
+    // 2. Get packet data and length
+    // 3. Checksum TCP segment
+
+    // (*packet)->tcp_header =
+    memcpy((*packet)->tcp_header, buf + ((*packet)->ip_header->ihl * 4), sizeof(struct tcp_hdr));
+    if ((*packet)->tcp_header->data_offset > sizeof(struct tcp_hdr)) {
+    }
+
+    return true;
 }
 
 void handle_packet(const char *buf, size_t buf_len) {
@@ -186,13 +222,23 @@ int main(void) {
         }
 
         printf("== Received %zu bytes ==\n", count);
-        handle_packet(buffer, count);
+        // handle_packet(buffer, count);
         printf("\n");
+
+        struct tcp_ip_packet *packet;
+        unwrap_packet(buffer, count, &packet);
 
         // TODO:
         // unwrap_packet(...)
         // tcb_add_or_update
         // respond
+
+        if (packet->ip_options_len > 0) {
+            free(packet->ip_options);
+        }
+        if (packet->data_len > 0) {
+            free(packet->data);
+        }
     }
 
     for (int i = 0; i < tcb_table->len; i++) {

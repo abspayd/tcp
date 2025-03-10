@@ -79,6 +79,8 @@ struct tcp_ip_packet {
     char *ip_options;
     size_t ip_options_len;
     struct tcp_hdr *tcp_header;
+    char *tcp_options;
+    size_t tcp_options_len;
     char *data;
     size_t data_len;
 };
