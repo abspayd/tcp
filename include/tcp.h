@@ -3,10 +3,33 @@
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <netinet/ip.h>
 #include <stdint.h>
 
 #define TCP_PROTOCOL 6
 #define MSS 536
+
+enum tcp_state {
+    CLOSED,
+    LISTEN,
+    SYN_SENT,
+    SYN_RECEIEVED,
+    ESTABLISHED,
+    FIN_WAIT_1,
+    FIN_WAIT_2,
+    CLOSE_WAIT,
+    CLOSING,
+    LAST_ACK,
+    TIME_WAIT,
+};
+
+struct tcb {
+    in_addr_t s_addr;
+    uint16_t s_port;
+    in_addr_t d_addr;
+    uint16_t d_port;
+    enum tcp_state state;
+};
 
 struct tcp_hdr {
     uint16_t s_port;
@@ -51,23 +74,13 @@ struct pseudo_hdr {
     uint16_t tcp_length;
 };
 
-#define CWR_MASK 0x80
-#define ECE_MASK 0x40
-#define URG_MASK 0x20
-#define ACK_MASK 0x10
-#define PSH_MASK 0x08
-#define RST_MASK 0x04
-#define SYN_MASK 0x02
-#define FIN_MASK 0x01
-
-// Extract TCP flags
-#define CWR_FLG(FLAGS) ((FLAGS & CWR_MASK) >> 7)
-#define ECE_FLG(FLAGS) ((FLAGS & ECE_MASK) >> 6)
-#define URG_FLG(FLAGS) ((FLAGS & URG_MASK) >> 5)
-#define ACK_FLG(FLAGS) ((FLAGS & ACK_MASK) >> 4)
-#define PSH_FLG(FLAGS) ((FLAGS & PSH_MASK) >> 3)
-#define RST_FLG(FLAGS) ((FLAGS & RST_MASK) >> 2)
-#define SYN_FLG(FLAGS) ((FLAGS & SYN_MASK) >> 1)
-#define FIN_FLG(FLAGS) (FLAGS & FIN_MASK)
+struct tcp_ip_packet {
+    struct iphdr *ip_header;
+    char *ip_options;
+    size_t ip_options_len;
+    struct tcp_hdr *tcp_header;
+    char *data;
+    size_t data_len;
+};
 
 #endif

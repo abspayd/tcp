@@ -1,19 +1,19 @@
 IDIR = include
+SRCDIR = src
+ODIR = obj
+
 CC = gcc
 CFLAGS = -std=c99 -I$(IDIR) -fsanitize=address -Wall -Wextra -Wpedantic -Wpadded -g
 TARGET = tcp
 
-ODIR = obj
-_OBJS = tcp.o tun.o
-OBJS = $(patsubst %,$(ODIR)/%,$(_OBJS))
-
-_DEPS = tcp.h tun.h
-DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
+SRC = $(wildcard $(SRCDIR)/*.c)
+OBJS = $(patsubst %.c,$(ODIR)/%.o,$(notdir $(SRC)))
+DEPS = $(wildcard $(IDIR)/*.h)
 
 .PHONY: all
 all: $(TARGET)
 
-$(ODIR)/%.o: %.c $(DEPS) | $(ODIR)
+$(ODIR)/%.o: $(SRCDIR)/%.c $(DEPS) | $(ODIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(OBJS): $(ODIR)

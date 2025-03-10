@@ -1,4 +1,4 @@
-#include "include/tun.h"
+#include "../include/tun.h"
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <linux/if.h>

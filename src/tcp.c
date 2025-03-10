@@ -1,5 +1,7 @@
-#include "include/tcp.h"
-#include "include/tun.h"
+#include "../include/tcp.h"
+#include "../include/ip.h"
+#include "../include/tun.h"
+#include "../include/util.h"
 #include <arpa/inet.h>
 #include <linux/if.h>
 #include <netinet/in.h>
@@ -13,45 +15,6 @@
 #define TUN_DEVICE "tun0"
 #define TUN_IP_ADDRESS "192.168.100.1"
 #define TUN_IP_PREFIX_LENGTH 24
-
-int get_ip_header(const char *buf, size_t buf_len, struct iphdr **ip_header) {
-    if (buf_len < sizeof(struct iphdr)) {
-        printf("Buffer size %zu too small for IP header\n", buf_len);
-        return -1;
-    }
-    *ip_header = (struct iphdr *)buf;
-    return 0;
-}
-
-uint16_t ip_checksum(struct iphdr *ip_header, char *options, size_t options_len) {
-    if ((ip_header->ihl * 4) < sizeof(struct iphdr) + options_len) {
-        printf("Unable to get IP checksum: IHL too small!\n");
-        return 0;
-    }
-
-    size_t buf_len = (ip_header->ihl * 4);
-    char buf[buf_len];
-    memset(buf, 0, buf_len);
-
-    memcpy(buf, (char *)ip_header, sizeof(struct iphdr));
-    if (options_len > 0) {
-        memcpy(buf + sizeof(struct iphdr), options, options_len);
-    }
-    ((struct iphdr *)buf)->check = 0;
-
-    uint32_t sum = 0;
-    uint16_t *ptr = (uint16_t *)buf;
-    for (int i = 0; i < (int)buf_len / 2; ++i) {
-        sum += ptr[i];
-    }
-    if (buf_len % 2) {
-        sum += (uint16_t)(buf[buf_len - 1] << 8);
-    }
-    while (sum >> 16) {
-        sum = (sum & 0xFFFF) + (sum >> 16);
-    }
-    return (uint16_t)~sum;
-}
 
 int get_tcp_header(struct iphdr *ip_header, const char *buf, size_t buf_len, struct tcp_hdr **tcp_header) {
     if (buf_len < sizeof(struct iphdr) + sizeof(struct tcp_hdr)) {
@@ -108,12 +71,38 @@ uint16_t tcp_checksum(struct pseudo_hdr *pseudo_header, struct tcp_hdr *tcp_head
     return (uint16_t)~sum;
 }
 
+struct iphdr new_ip_header(in_addr_t source_ipaddr, in_addr_t dest_ipaddr) {
+    struct iphdr returnIP = {
+        .version = 4,
+        .ihl = (uint8_t)(sizeof(struct iphdr) & 0xF),
+        .tos = 0,
+        .tot_len = 0, // TODO: need _everything_ before this can be determined
+        .id = htons(1),
+        .frag_off = 0,
+        .ttl = 64,
+        .protocol = 6,
+        .check = 0,
+        .saddr = htonl(source_ipaddr),
+        .daddr = htonl(dest_ipaddr),
+    };
+
+    return returnIP;
+}
+
 /**
  * Construct a SYN-ACK packet into a buffer buf
  *
  * @return the size of the packet, or -1 if an error occurred
  */
-ssize_t syn_ack(struct iphdr *ip_header, char *buf, size_t buf_len) { return -1; }
+ssize_t syn_ack(struct iphdr *ip_header, char *buf, size_t buf_len) {
+    // TODO: take some time to make a diagram of how the TCP/IP protocol works
+    return -1;
+}
+
+void unwrap_packet(const char *buf, size_t buf_len, struct tcp_ip_packet **packet) {
+    ;
+    return;
+}
 
 void handle_packet(const char *buf, size_t buf_len) {
     struct iphdr *ip_header;
@@ -167,7 +156,6 @@ void handle_packet(const char *buf, size_t buf_len) {
 
     if (tcp_header->flag_syn) {
         // Send SYN-ACK
-
         char resp_buf[MSS];
         ssize_t resp_len = syn_ack(ip_header, resp_buf, buf_len);
         if (resp_len > 0) {
@@ -184,6 +172,8 @@ int main(void) {
         return 1;
     }
 
+    ArrayList *tcb_table = arraylist_create(DEFAULT_CAPACITY);
+
     printf("Listening to device %s\n", dev);
     const int BUFFER_LENGTH = 1024 * 4;
     char buffer[BUFFER_LENGTH];
@@ -198,7 +188,17 @@ int main(void) {
         printf("== Received %zu bytes ==\n", count);
         handle_packet(buffer, count);
         printf("\n");
+
+        // TODO:
+        // unwrap_packet(...)
+        // tcb_add_or_update
+        // respond
     }
+
+    for (int i = 0; i < tcb_table->len; i++) {
+        free(tcb_table->values[i]);
+    }
+    arraylist_destroy(tcb_table);
 
     close(tun_fd);
     return 0;
