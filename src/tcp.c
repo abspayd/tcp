@@ -108,33 +108,69 @@ bool unwrap_packet(const char *buf, size_t buf_len, struct tcp_ip_packet **packe
 
     memset(*packet, 0, sizeof(struct tcp_ip_packet));
 
-    memcpy((*packet)->ip_header, buf, sizeof(struct iphdr));
-    if ((*packet)->ip_header->version != 4) {
+    memcpy(&(*packet)->ip_header, buf, sizeof(struct iphdr));
+    if ((*packet)->ip_header.version != 4) {
         printf("Packet is not IPv4, skipping...\n");
         return false;
     }
-
-    if ((*packet)->ip_header->ihl * 4 > sizeof(struct iphdr)) {
-        size_t options_len = ((*packet)->ip_header->ihl * 4) - sizeof(struct iphdr);
-        char *ip_options = malloc(options_len);
-        (*packet)->ip_options_len = options_len;
-        memcpy(ip_options, buf + sizeof(struct iphdr), options_len);
-    }
-
-    uint16_t ip_sum = ip_checksum((*packet)->ip_header, (*packet)->ip_options, (*packet)->ip_options_len);
-    if (ip_sum != (*packet)->ip_header->check) {
-        free((*packet)->ip_options);
+    if ((*packet)->ip_header.protocol != TCP_PROTOCOL) {
+        printf("Packet is not a TCP segment, skipping...\n");
         return false;
     }
 
-    // TODO:
-    // 1. Get tcp header options and length
-    // 2. Get packet data and length
-    // 3. Checksum TCP segment
+    if ((*packet)->ip_header.ihl * 4 > sizeof(struct iphdr)) {
+        size_t options_len = ((*packet)->ip_header.ihl * 4) - sizeof(struct iphdr);
+        char *ip_options = malloc(options_len);
+        memcpy(ip_options, buf + sizeof(struct iphdr), options_len);
 
-    // (*packet)->tcp_header =
-    memcpy((*packet)->tcp_header, buf + ((*packet)->ip_header->ihl * 4), sizeof(struct tcp_hdr));
-    if ((*packet)->tcp_header->data_offset > sizeof(struct tcp_hdr)) {
+        (*packet)->ip_options_len = options_len;
+        (*packet)->ip_options = ip_options;
+    }
+
+    uint16_t ip_sum = ip_checksum(&((*packet)->ip_header), (*packet)->ip_options, (*packet)->ip_options_len);
+    if (ip_sum != (*packet)->ip_header.check) {
+        return false;
+    }
+
+    memcpy(&(*packet)->tcp_header, buf + ((*packet)->ip_header.ihl * 4), sizeof(struct tcp_hdr));
+    if ((*packet)->tcp_header.data_offset > sizeof(struct tcp_hdr)) {
+        size_t tcp_options_len = ((*packet)->tcp_header.data_offset * 4) - sizeof(struct tcp_hdr);
+        char *tcp_options = malloc(tcp_options_len);
+        memcpy(tcp_options, buf + sizeof(struct iphdr) + sizeof(struct tcp_hdr), tcp_options_len);
+
+        (*packet)->tcp_options_len = tcp_options_len;
+        (*packet)->tcp_options = tcp_options;
+    }
+
+    size_t headers_length =
+        sizeof(struct iphdr) + (*packet)->ip_options_len + sizeof(struct tcp_hdr) + (*packet)->tcp_options_len;
+    if (buf_len > headers_length) {
+        size_t data_len = buf_len - headers_length;
+        char *data = malloc(data_len);
+        memcpy(data, buf + headers_length, data_len);
+
+        (*packet)->data_len = data_len;
+        (*packet)->data = data;
+    }
+
+    struct pseudo_hdr pseudo_header = {
+        .source_ipaddr = (*packet)->ip_header.saddr,
+        .dest_ipaddr = (*packet)->ip_header.daddr,
+        .zero = 0,
+        .protocol = (*packet)->ip_header.protocol,
+        .tcp_length = htons(sizeof(struct tcp_hdr) + (*packet)->tcp_options_len + (*packet)->data_len),
+    };
+
+    size_t payload_offset = ((*packet)->ip_header.ihl * 4) + sizeof(struct tcp_hdr);
+    if (payload_offset >= buf_len) {
+        printf("Packet too small to fit TCP/IP headers!\n");
+        return false;
+    }
+    uint16_t tcp_sum =
+        tcp_checksum(&pseudo_header, &(*packet)->tcp_header, buf + payload_offset, buf_len - payload_offset);
+    if (tcp_sum != (*packet)->tcp_header.checksum) {
+        printf("Incorrect TCP checksum.\n");
+        return false;
     }
 
     return true;
@@ -180,7 +216,7 @@ void handle_packet(const char *buf, size_t buf_len) {
         .source_ipaddr = ip_header->saddr,
         .dest_ipaddr = ip_header->daddr,
         .zero = 0,
-        .protocol = (uint8_t)ip_header->protocol,
+        .protocol = ip_header->protocol,
         .tcp_length = htons(ntohs(ip_header->tot_len) - ((uint16_t)ip_header->ihl * 4)),
     };
     size_t payload_offset = (ip_header->ihl * 4) + sizeof(struct tcp_hdr);
@@ -223,22 +259,48 @@ int main(void) {
 
         printf("== Received %zu bytes ==\n", count);
         // handle_packet(buffer, count);
-        printf("\n");
+        // printf("\n");
 
-        struct tcp_ip_packet *packet;
-        unwrap_packet(buffer, count, &packet);
+        struct tcp_ip_packet *packet = malloc(sizeof(struct tcp_ip_packet));
+        if (!unwrap_packet(buffer, count, &packet)) {
+            printf("Unable to validate packet\n");
+        } else {
+            printf("Obtained valid packet!\n");
+        }
 
         // TODO:
-        // unwrap_packet(...)
-        // tcb_add_or_update
-        // respond
+        // - [x] unwrap_packet(...)
+        // - [ ] tcb_add_or_update
+        //    - [x] add
+        //    - [ ] update existing
+        // - [ ] respond
+
+        struct tcb *tcb_entry = malloc(sizeof(struct tcb));
+        memset(tcb_entry, 0, sizeof(struct tcb));
+        tcb_entry->s_addr = ntohl((*packet).ip_header.saddr);
+        tcb_entry->s_port = ntohs((*packet).tcp_header.s_port);
+        tcb_entry->d_addr = ntohl((*packet).ip_header.daddr);
+        tcb_entry->d_port = ntohs((*packet).tcp_header.d_port);
+        tcb_entry->state = CLOSED; // TODO: get actual state
+        arraylist_add(tcb_table, tcb_entry);
+
+        printf("== TCB Table ==\n");
+        for (int i = 0; i < tcb_table->len; i++) {
+            printf("{s_addr: %u, s_port: %u, d_addr: %u, d_port: %u, state: %u}", tcb_entry->s_addr, tcb_entry->s_port,
+                   tcb_entry->d_addr, tcb_entry->d_port, tcb_entry->state);
+            printf("\n");
+        }
 
         if (packet->ip_options_len > 0) {
             free(packet->ip_options);
         }
+        if (packet->tcp_options_len > 0) {
+            free(packet->tcp_options);
+        }
         if (packet->data_len > 0) {
             free(packet->data);
         }
+        free(packet);
     }
 
     for (int i = 0; i < tcb_table->len; i++) {

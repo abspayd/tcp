@@ -27,6 +27,4 @@ bool arraylist_resize(ArrayList *list, size_t new_cap);
 // De-allocate an arraylist
 void arraylist_destroy(ArrayList *list);
 
-void arraylist_print(ArrayList *list);
-
 #endif

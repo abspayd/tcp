@@ -75,10 +75,10 @@ struct pseudo_hdr {
 };
 
 struct tcp_ip_packet {
-    struct iphdr *ip_header;
+    struct iphdr ip_header;
     char *ip_options;
     size_t ip_options_len;
-    struct tcp_hdr *tcp_header;
+    struct tcp_hdr tcp_header;
     char *tcp_options;
     size_t tcp_options_len;
     char *data;
