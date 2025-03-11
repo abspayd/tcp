@@ -271,8 +271,9 @@ int main(void) {
         // TODO:
         // - [x] unwrap_packet(...)
         // - [ ] tcb_add_or_update
-        //    - [x] add
-        //    - [ ] update existing
+        //    - [x] add new records
+        //    - [ ] update existing records
+        //    - [ ] remove closed records
         // - [ ] respond
 
         struct tcb *tcb_entry = malloc(sizeof(struct tcb));
