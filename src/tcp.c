@@ -244,7 +244,7 @@ int main(void) {
         return 1;
     }
 
-    ArrayList *tcb_table = arraylist_create(DEFAULT_CAPACITY);
+    tcb_table_t *tcb_table = tcb_table_create(256);
 
     printf("Listening to device %s\n", dev);
     const int BUFFER_LENGTH = 1024 * 4;
@@ -272,25 +272,19 @@ int main(void) {
         // - [x] unwrap_packet(...)
         // - [ ] tcb_add_or_update
         //    - [x] add new records
-        //    - [ ] update existing records
-        //    - [ ] remove closed records
+        //    - [x] update existing records
+        //    - [x] remove closed records - maybe
         // - [ ] respond
 
-        struct tcb *tcb_entry = malloc(sizeof(struct tcb));
-        memset(tcb_entry, 0, sizeof(struct tcb));
-        tcb_entry->s_addr = ntohl((*packet).ip_header.saddr);
-        tcb_entry->s_port = ntohs((*packet).tcp_header.s_port);
-        tcb_entry->d_addr = ntohl((*packet).ip_header.daddr);
-        tcb_entry->d_port = ntohs((*packet).tcp_header.d_port);
-        tcb_entry->state = CLOSED; // TODO: get actual state
-        arraylist_add(tcb_table, tcb_entry);
+        tcb_key_t key = {
+            .s_addr = ntohl(packet->ip_header.saddr),
+            .s_port = ntohs(packet->tcp_header.s_port),
+            .d_addr = ntohl(packet->ip_header.daddr),
+            .d_port = ntohs(packet->tcp_header.d_port),
+        };
+        tcb_table_set(tcb_table, &key, TCP_STATE_CLOSED);
 
-        printf("== TCB Table ==\n");
-        for (int i = 0; i < tcb_table->len; i++) {
-            printf("{s_addr: %u, s_port: %u, d_addr: %u, d_port: %u, state: %u}", tcb_entry->s_addr, tcb_entry->s_port,
-                   tcb_entry->d_addr, tcb_entry->d_port, tcb_entry->state);
-            printf("\n");
-        }
+        printf("STATE: %d\n", tcb_table_get(tcb_table, &key));
 
         if (packet->ip_options_len > 0) {
             free(packet->ip_options);
@@ -304,10 +298,7 @@ int main(void) {
         free(packet);
     }
 
-    for (int i = 0; i < tcb_table->len; i++) {
-        free(tcb_table->values[i]);
-    }
-    arraylist_destroy(tcb_table);
+    tcb_table_destroy(tcb_table);
 
     close(tun_fd);
     return 0;
