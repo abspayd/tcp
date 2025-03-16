@@ -42,11 +42,11 @@ int arraylist_add(ArrayList *list, void *item) {
 }
 
 bool arraylist_del(ArrayList *list, int index) {
-    if (!list || index > list->len) {
+    if (!list || index > (int)list->len) {
         return false;
     }
 
-    for (int i = index; i < list->len; i++) {
+    for (int i = index; i < (int)list->len; i++) {
         list->values[i] = list->values[i + 1];
     }
 
@@ -72,7 +72,7 @@ bool arraylist_resize(ArrayList *list, size_t new_cap) {
 
 unsigned int tcb_hash(tcb_key_t *key, size_t capacity) {
     return (key->s_addr + key->s_port + key->d_addr + key->d_port) % capacity;
-};
+}
 
 bool tcb_key_compare(tcb_key_t *k1, tcb_key_t *k2) {
     return (k1->s_addr == k2->s_addr && k1->s_port == k2->s_port && k1->d_addr == k2->d_addr &&
@@ -113,6 +113,8 @@ bool tcb_table_set(tcb_table_t *tcb_table, tcb_key_t *key, enum tcp_state state)
 
     if (entry != NULL) {
         entry->next = new_entry;
+    } else {
+        tcb_table->entries[index] = new_entry;
     }
 
     return true;
@@ -161,7 +163,7 @@ void tcb_table_destroy(tcb_table_t *tcb_table) {
         return;
     }
 
-    for (int i = 0; i < tcb_table->capacity; i++) {
+    for (int i = 0; i < (int)tcb_table->capacity; i++) {
         tcb_entry_t *entry = tcb_table->entries[i];
         while (entry != NULL) {
             tcb_entry_t *next = entry->next;
@@ -172,4 +174,20 @@ void tcb_table_destroy(tcb_table_t *tcb_table) {
 
     free(tcb_table->entries);
     free(tcb_table);
+}
+
+void tcb_table_print(tcb_table_t *tcb_table) {
+    printf("=== TCB Table ===\n");
+    int idx = 0;
+    for (int i = 0; i < tcb_table->capacity; i++) {
+        tcb_entry_t *entry = tcb_table->entries[i];
+        if (entry != NULL) {
+            printf("  %d  ", i);
+            while (entry != NULL) {
+                printf(" -> %d", entry->value);
+                entry = entry->next;
+            }
+            printf("\n");
+        }
+    }
 }

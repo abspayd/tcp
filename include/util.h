@@ -57,8 +57,8 @@ void arraylist_destroy(ArrayList *list);
 
 typedef struct {
     in_addr_t s_addr;
-    uint16_t s_port;
     in_addr_t d_addr;
+    uint16_t s_port;
     uint16_t d_port;
 } tcb_key_t;
 
@@ -78,5 +78,6 @@ bool tcb_table_set(tcb_table_t *tcb_table, tcb_key_t *key, enum tcp_state state)
 enum tcp_state tcb_table_get(tcb_table_t *tcb_table, tcb_key_t *key);
 bool tcb_table_delete(tcb_table_t *tcb_table, tcb_key_t *key);
 void tcb_table_destroy(tcb_table_t *tcb_table);
+void tcb_table_print(tcb_table_t *tcb_table);
 
 #endif

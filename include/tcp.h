@@ -25,8 +25,8 @@ enum tcp_state {
 
 struct tcb {
     in_addr_t s_addr;
-    uint16_t s_port;
     in_addr_t d_addr;
+    uint16_t s_port;
     uint16_t d_port;
     enum tcp_state state;
 };
@@ -76,13 +76,13 @@ struct pseudo_hdr {
 
 struct tcp_ip_packet {
     struct iphdr ip_header;
-    char *ip_options;
-    size_t ip_options_len;
     struct tcp_hdr tcp_header;
-    char *tcp_options;
+    size_t ip_options_len;
     size_t tcp_options_len;
-    char *data;
     size_t data_len;
+    char *ip_options;
+    char *tcp_options;
+    char *data;
 };
 
 #endif
