@@ -1,3 +1,5 @@
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <netinet/ip.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,4 +37,19 @@ uint16_t ip_checksum(struct iphdr *ip_header, char *options, size_t options_len)
         sum = (sum & 0xFFFF) + (sum >> 16);
     }
     return (uint16_t)~sum;
+}
+
+void ip_dump(struct iphdr *ip_header) {
+    printf("== IP header ==\n");
+    printf("  version: %u, ihl: %u, tos: %u, tot_len: %u\n", ip_header->version, ip_header->ihl, ip_header->tos,
+           ntohs(ip_header->tot_len));
+    printf("  id: %u, frag_offset: %u\n", ntohs(ip_header->id), ntohs(ip_header->frag_off));
+    printf("  ttl: %u, protocol: %u, checksum: %u\n", ip_header->ttl, ip_header->protocol, ntohs(ip_header->check));
+
+    char s_addr_str[INET_ADDRSTRLEN];
+    char d_addr_str[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &ip_header->saddr, s_addr_str, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, &ip_header->daddr, d_addr_str, INET_ADDRSTRLEN);
+    printf("  source addr: %s\n", s_addr_str);
+    printf("  destination addr: %s\n", d_addr_str);
 }

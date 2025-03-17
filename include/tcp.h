@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #define TCP_PROTOCOL 6
+#define ICMP_PROTOCOL 1
 #define MSS 536
 
 enum tcp_state {
@@ -83,6 +84,16 @@ struct tcp_ip_packet {
     char *ip_options;
     char *tcp_options;
     char *data;
+};
+
+#define ICMP_ECHO_REQUEST 8
+#define ICMP_ECHO_REPLY 0
+
+struct icmp_hdr {
+    uint8_t type;
+    uint8_t code;
+    uint16_t checksum;
+    uint32_t data;
 };
 
 #endif

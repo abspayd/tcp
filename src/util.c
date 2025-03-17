@@ -178,8 +178,7 @@ void tcb_table_destroy(tcb_table_t *tcb_table) {
 
 void tcb_table_print(tcb_table_t *tcb_table) {
     printf("=== TCB Table ===\n");
-    int idx = 0;
-    for (int i = 0; i < tcb_table->capacity; i++) {
+    for (int i = 0; i < (int)tcb_table->capacity; i++) {
         tcb_entry_t *entry = tcb_table->entries[i];
         if (entry != NULL) {
             printf("  %d  ", i);

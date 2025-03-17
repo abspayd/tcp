@@ -7,5 +7,6 @@
 
 int get_ip_header(const char *buf, size_t buf_len, struct iphdr **ip_header);
 uint16_t ip_checksum(struct iphdr *ip_header, char *options, size_t options_len);
+void ip_dump(struct iphdr *ip_header);
 
 #endif
