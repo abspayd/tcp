@@ -180,9 +180,9 @@ void handle_packet(int tun_fd, tcb_table_t *tcb_table, struct tcp_ip_packet *pac
 
         };
         uint16_t sum = tcp_checksum(&pseudo_header, &packet_out.tcp_header, NULL, 0);
-        packet_out.tcp_header.checksum = htons(sum);
+        packet_out.tcp_header.checksum = sum;
         sum = ip_checksum(&packet_out.ip_header, NULL, 0);
-        packet_out.ip_header.check = htons(sum);
+        packet_out.ip_header.check = sum;
 
         if (send_packet(tun_fd, &packet_out)) {
             printf("Packet sent!\n");
