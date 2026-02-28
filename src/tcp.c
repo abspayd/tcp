@@ -1,9 +1,10 @@
-#include "../include/tcp.h"
-#include "../include/ip.h"
-#include "../include/tun.h"
-#include "../include/util.h"
+#include "tcp.h"
+#include "ip.h"
+#include "ping.h"
+#include "tun.h"
+#include "util/util.h"
 #include <arpa/inet.h>
-#include <errno.h>
+#include <bits/endian.h>
 #include <linux/if.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
@@ -27,8 +28,10 @@ static void tcp_dump(struct tcp_hdr *tcp_header) {
     printf("  source port: %u, dest port: %u\n", ntohs(tcp_header->s_port), ntohs(tcp_header->d_port));
     printf("  seq: %u\n", ntohl(tcp_header->seq));
     printf("  ack: %u\n", ntohl(tcp_header->ack));
-    printf("  data offset: %u, reserved: %u, flags: %u, window: %u\n", tcp_header->data_offset, tcp_header->reserved,
-           tcp_header->flag_cwr, ntohs(tcp_header->window));
+    printf("  data offset: %u, reserved: %u, flags: %u, window: %u\n", TCP_OFFSET(ntohs(tcp_header->flags)),
+           TCP_RESERVED(ntohs(tcp_header->flags)), TCP_CWR(ntohs(tcp_header->flags)), ntohs(tcp_header->window));
+    // printf("  data offset: %u, reserved: %u, flags: %u, window: %u\n", tcp_header->data_offset, tcp_header->reserved,
+    //        tcp_header->flag_cwr, ntohs(tcp_header->window));
     printf("  checksum: %u, urg ptr: %u\n", ntohs(tcp_header->checksum), ntohs(tcp_header->urgent_ptr));
 }
 
@@ -62,6 +65,8 @@ uint16_t tcp_checksum(struct pseudo_hdr *pseudo_header, struct tcp_hdr *tcp_head
     if (buf_len % 2) {
         sum += (uint16_t)(buf[buf_len - 1] << 8);
     }
+
+    // end-around carry to add remainder back to least-significant bits
     while (sum >> 16) {
         sum = (sum & 0xFFFF) + (sum >> 16);
     }
@@ -73,7 +78,7 @@ struct iphdr new_ip_header(in_addr_t source_ipaddr, in_addr_t dest_ipaddr) {
         .version = 4,
         .ihl = (uint8_t)(sizeof(struct iphdr) & 0xF),
         .tos = 0,
-        .tot_len = 0, // TODO: need _everything_ before this can be determined
+        .tot_len = 0,
         .id = htons(1),
         .frag_off = 0,
         .ttl = 64,
@@ -141,10 +146,15 @@ void handle_packet(int tun_fd, tcb_table_t *tcb_table, struct tcp_ip_packet *pac
     };
 
     enum tcp_state current_state = tcb_table_get(tcb_table, &key);
-    if (packet->tcp_header.flag_syn) {
+    // if (packet->tcp_header.flag_syn) {
+    if (TCP_SYN(packet->tcp_header.flags)) {
         tcb_table_set(tcb_table, &key, TCP_STATE_SYN_RECEIEVED);
         // Send syn-ack
         struct tcp_ip_packet packet_out;
+
+        uint16_t tcp_flags = 0;
+        tcp_flags = (uint8_t)sizeof(struct tcp_hdr) / 4;
+
         memset(&packet_out, 0, sizeof(packet_out));
         packet_out.tcp_header = (struct tcp_hdr){
             .s_port = packet->tcp_header.d_port,
@@ -152,9 +162,10 @@ void handle_packet(int tun_fd, tcb_table_t *tcb_table, struct tcp_ip_packet *pac
             // .seq = htonl(ntohl(packet->tcp_header.seq) + 1), // htonl((uint32_t)rand()),
             .seq = htonl((uint32_t)rand()),
             .ack = htonl(ntohl(packet->tcp_header.seq) + 1),
-            .data_offset = (uint8_t)(sizeof(struct tcp_hdr)) / 4,
-            .flag_ack = 1,
-            .flag_syn = 1,
+            .flags = htonl(tcp_flags),
+            // .data_offset = (uint8_t)(sizeof(struct tcp_hdr)) / 4,
+            // .flag_ack = 1,
+            // .flag_syn = 1,
             .window = htons(65535),
             .checksum = 0,
         };
@@ -194,138 +205,6 @@ void handle_packet(int tun_fd, tcb_table_t *tcb_table, struct tcp_ip_packet *pac
     }
 }
 
-uint16_t icmp_checksum(struct icmp_hdr *icmp_header, char *data, size_t data_len) {
-    size_t buffer_len = sizeof(struct icmp_hdr) + data_len;
-    char buf[buffer_len];
-    memset(buf, 0, buffer_len);
-
-    memcpy(buf, icmp_header, sizeof(struct icmp_hdr));
-    memcpy(buf + sizeof(struct icmp_hdr), data, data_len);
-
-    ((struct icmp_hdr *)buf)->checksum = 0;
-
-    uint32_t sum = 0;
-    uint16_t *ptr = (uint16_t *)buf;
-    for (int i = 0; i < (int)buffer_len / 2; i++) {
-        sum += ptr[i];
-    }
-    if (buffer_len % 2) {
-        sum += (uint16_t)(buf[buffer_len - 1] << 8);
-    }
-    while (sum >> 16) {
-        sum = (sum & 0x0000FFFF) + (sum >> 16);
-    }
-
-    return (uint16_t)~sum;
-}
-
-bool icmp_respond(int tun_fd, char *buffer, size_t buffer_len) {
-    if (buffer_len < sizeof(struct iphdr) + sizeof(struct icmp_hdr)) {
-        return false;
-    }
-
-    size_t offset = 0;
-    struct iphdr ip_header;
-    memcpy(&ip_header, buffer, sizeof(ip_header));
-    offset += sizeof(struct iphdr);
-
-    size_t ip_options_len = (ip_header.ihl * 4) - sizeof(struct iphdr);
-    char ip_options[ip_options_len];
-    memcpy(&ip_options, buffer + offset, ip_options_len);
-    offset += ip_options_len;
-
-    uint16_t sum = ip_checksum(&ip_header, ip_options, ip_options_len);
-    if (ip_header.check != sum) {
-        printf("[WARN] --- IP checksum expected %u, got %u instead.\n", ip_header.check, sum);
-        return false;
-    }
-
-    printf("[INFO] --- Verified IP checksum.\n");
-
-    struct icmp_hdr icmp_header;
-    memcpy(&icmp_header, buffer + offset, sizeof(icmp_header));
-    offset += sizeof(icmp_header);
-
-    size_t data_len = buffer_len - (sizeof(struct iphdr) + ip_options_len + sizeof(struct icmp_hdr));
-    char data[data_len];
-    memcpy(&data, buffer + offset, data_len);
-
-    printf("[DEBUG] --- == ICMP ==\n");
-    printf("[DEBUG] ---  Type: %u\n", icmp_header.type);
-    printf("[DEBUG] ---  Code: %u\n", icmp_header.code);
-    printf("[DEBUG] ---  Checksum: %u\n", ntohs(icmp_header.checksum));
-    printf("[DEBUG] ---  Data: %u\n", ntohl(icmp_header.data));
-    printf("[DEBUG] ---  Payload: [");
-    for (int i = 0; i < data_len; i++) {
-        printf("0x%02X", data[i]);
-        // printf("%c", data[i]);
-        if (i < data_len - 1) {
-            printf(" ");
-        }
-    }
-    printf("]\n");
-
-    sum = icmp_checksum(&icmp_header, data, data_len);
-    if (sum != icmp_header.checksum) {
-        printf("[WARN] --- ICMP checksum expected %u, got %u instead.\n", icmp_header.checksum, sum);
-        return false;
-    }
-
-    printf("[INFO] --- Verified ICMP checksum.\n");
-
-    if (icmp_header.type != ICMP_ECHO_REQUEST) {
-        printf("[WARN] --- Unsupported ICMP type: %u.\n", icmp_header.type);
-        return false;
-    }
-
-    struct icmp_hdr icmp_reply;
-    memcpy(&icmp_reply, &icmp_header, sizeof(icmp_header));
-    icmp_reply.type = ICMP_ECHO_REPLY;
-    icmp_reply.code = 0;
-    icmp_reply.checksum = 0;
-    icmp_reply.checksum = icmp_checksum(&icmp_reply, data, data_len);
-
-    struct iphdr ip_reply = {
-        .version = 4,
-        .ihl = (sizeof(struct iphdr) / 4),
-        .tos = 0,
-        .id = 0,
-        .frag_off = 0,
-        .ttl = ip_header.ttl,
-        .protocol = ICMP_PROTOCOL,
-        .check = 0,
-        .saddr = ip_header.daddr,
-        .daddr = ip_header.saddr,
-    };
-    ip_reply.check = ip_checksum(&ip_reply, NULL, 0);
-
-    size_t reply_len = sizeof(struct iphdr) + sizeof(struct icmp_hdr) + data_len;
-    char reply[reply_len];
-    memcpy(reply, &ip_reply, sizeof(ip_reply));
-    memcpy(reply + sizeof(ip_reply), &icmp_reply, sizeof(icmp_reply));
-    memcpy(reply + sizeof(ip_reply) + sizeof(icmp_reply), data, data_len);
-
-    printf("[DEBUG] --- tun_fd: %d\n", tun_fd);
-    printf("[DEBUG] --- reply len: %zu\n", reply_len);
-    printf("[DEBUG] --- ");
-    for (int i = 0; i < reply_len; i++) {
-        printf("0x%02X", reply[i]);
-        if (i < reply_len - 1) {
-            printf(" ");
-        }
-    }
-    printf("\n");
-
-    // TODO: configure routing tables
-    if (write(tun_fd, reply, reply_len) <= 0) {
-        printf("[WARN] --- (Error %d: %s) Unable to send PING reply.\n", errno, strerror(errno));
-        return false;
-    }
-
-    printf("[INFO] --- Sent PING reply.\n");
-    return true;
-}
-
 // Unwrap a byte stream into a TCP/IP packet. Returns true if the byte stream contains
 // a valid TCP/IP packet and was unwrapped, and false otherwise.
 bool unwrap_packet(const char *buf, size_t buf_len, struct tcp_ip_packet **packet) {
@@ -361,8 +240,10 @@ bool unwrap_packet(const char *buf, size_t buf_len, struct tcp_ip_packet **packe
     }
 
     memcpy(&(*packet)->tcp_header, buf + ((*packet)->ip_header.ihl * 4), sizeof(struct tcp_hdr));
-    if ((*packet)->tcp_header.data_offset > sizeof(struct tcp_hdr)) {
-        size_t tcp_options_len = ((*packet)->tcp_header.data_offset * 4) - sizeof(struct tcp_hdr);
+    // if ((*packet)->tcp_header.data_offset > sizeof(struct tcp_hdr)) {
+    // size_t tcp_options_len = ((*packet)->tcp_header.data_offset * 4) - sizeof(struct tcp_hdr);
+    if (TCP_OFFSET((*packet)->tcp_header.flags) > sizeof(struct tcp_hdr)) {
+        size_t tcp_options_len = (TCP_OFFSET((*packet)->tcp_header.flags) * 4) - sizeof(struct tcp_hdr);
         char *tcp_options = malloc(tcp_options_len);
         memcpy(tcp_options, buf + sizeof(struct iphdr) + sizeof(struct tcp_hdr), tcp_options_len);
 
@@ -396,7 +277,7 @@ bool unwrap_packet(const char *buf, size_t buf_len, struct tcp_ip_packet **packe
     }
     uint16_t tcp_sum =
         tcp_checksum(&pseudo_header, &(*packet)->tcp_header, buf + payload_offset, buf_len - payload_offset);
-    if (tcp_sum != (*packet)->tcp_header.checksum) {
+    if (tcp_sum != ntohs((*packet)->tcp_header.checksum)) {
         printf("Incorrect TCP checksum.\n");
         return false;
     }
@@ -409,6 +290,11 @@ int main(void) {
     int tun_fd = tun_alloc(dev);
     if (tun_fd < 0) {
         perror("tun_alloc");
+        return 1;
+    }
+
+    if (set_dev_ip_addr(dev, "192.168.100.1") < 0) {
+        perror("Unable to set address on tun device");
         return 1;
     }
 

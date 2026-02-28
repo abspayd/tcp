@@ -1,5 +1,5 @@
-#ifndef __TCP_H
-#define __TCP_H
+#ifndef TCP_H_INCLUDED
+#define TCP_H_INCLUDED
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -7,7 +7,6 @@
 #include <stdint.h>
 
 #define TCP_PROTOCOL 6
-#define ICMP_PROTOCOL 1
 #define MSS 536
 
 enum tcp_state {
@@ -32,35 +31,28 @@ struct tcb {
     enum tcp_state state;
 };
 
+#define SET_BIT(BF, N) ((BF) |= (1 << (N)))
+#define UNSET_BIT(BF, N) ((BF) &= ~(1 << (N)))
+#define TOGGLE_BIT(BF, N) ((BF) ^= (1 << (N)))
+#define READ_BIT(BF, N) (((BF) >> (N)) & 1)
+
+#define TCP_OFFSET(flags) (0xF000 & (flags) >> 12)
+#define TCP_RESERVED(flags) (0x0F00 & (flags) >> 8)
+#define TCP_CWR(BF) READ_BIT(BF, 7)
+#define TCP_ECE(BF) READ_BIT(BF, 6)
+#define TCP_URG(BF) READ_BIT(BF, 5)
+#define TCP_ACK(BF) READ_BIT(BF, 4)
+#define TCP_PSH(BF) READ_BIT(BF, 3)
+#define TCP_RST(BF) READ_BIT(BF, 2)
+#define TCP_SYN(BF) READ_BIT(BF, 1)
+#define TCP_FIN(BF) READ_BIT(BF, 0)
+
 struct tcp_hdr {
     uint16_t s_port;
     uint16_t d_port;
     uint32_t seq;
     uint32_t ack;
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-    uint8_t reserved : 4;
-    uint8_t data_offset : 4;
-    uint8_t flag_fin : 1;
-    uint8_t flag_syn : 1;
-    uint8_t flag_rst : 1;
-    uint8_t flag_psh : 1;
-    uint8_t flag_ack : 1;
-    uint8_t flag_urg : 1;
-    uint8_t flag_ece : 1;
-    uint8_t flag_cwr : 1;
-#else
-    uint8_t data_offset : 4;
-    uint8_t reserved : 4;
-    uint8_t flag_cwr : 1;
-    uint8_t flag_ece : 1;
-    uint8_t flag_urg : 1;
-    uint8_t flag_ack : 1;
-    uint8_t flag_psh : 1;
-    uint8_t flag_rst : 1;
-    uint8_t flag_syn : 1;
-    uint8_t flag_fin : 1;
-#endif
-    // uint8_t flags;
+    uint16_t flags;
     uint16_t window;
     uint16_t checksum;
     uint16_t urgent_ptr;
@@ -84,16 +76,6 @@ struct tcp_ip_packet {
     char *ip_options;
     char *tcp_options;
     char *data;
-};
-
-#define ICMP_ECHO_REQUEST 8
-#define ICMP_ECHO_REPLY 0
-
-struct icmp_hdr {
-    uint8_t type;
-    uint8_t code;
-    uint16_t checksum;
-    uint32_t data;
 };
 
 #endif

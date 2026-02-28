@@ -1,11 +1,12 @@
-#include "../include/util.h"
+#include "util/util.h"
+#include "util/list.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-ArrayList *arraylist_create(size_t cap) {
-    ArrayList *list = (ArrayList *)malloc(sizeof(ArrayList));
+List *List_Init(size_t cap) {
+    List *list = (List *)malloc(sizeof(List));
     if (!list) {
         return NULL;
     }
@@ -21,19 +22,19 @@ ArrayList *arraylist_create(size_t cap) {
     return list;
 }
 
-void arraylist_destroy(ArrayList *list) {
+void List_Free(List *list) {
     if (list) {
         free(list->values);
         free(list);
     }
 }
 
-int arraylist_add(ArrayList *list, void *item) {
+int List_Add(List *list, void *item) {
     if (!list) {
         return -1;
     }
     if (list->len + 1 >= list->cap) {
-        if (!arraylist_resize(list, list->cap * 2)) {
+        if (!List_Resize(list, list->cap * 2)) {
             return -1;
         }
     }
@@ -41,7 +42,7 @@ int arraylist_add(ArrayList *list, void *item) {
     return list->len - 1;
 }
 
-bool arraylist_del(ArrayList *list, int index) {
+bool List_Remove(List *list, int index) {
     if (!list || index > (int)list->len) {
         return false;
     }
@@ -53,13 +54,13 @@ bool arraylist_del(ArrayList *list, int index) {
     list->len--;
 
     if (list->len <= list->cap / 4 && list->cap > 10) {
-        arraylist_resize(list, list->cap / 2);
+        List_Resize(list, list->cap / 2);
     }
 
     return true;
 }
 
-bool arraylist_resize(ArrayList *list, size_t new_cap) {
+bool List_Resize(List *list, size_t new_cap) {
     void *new_values = realloc(list->values, new_cap);
     if (!new_values) {
         return false;

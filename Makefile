@@ -1,35 +1,73 @@
-IDIR = include
-SRCDIR = src
-ODIR = obj
+INCLUDE_DIR := include
+SRC_DIR := src
+BUILD_DIR := build
+BIN_DIR := bin
 
-CC = gcc
-CFLAGS = -std=c99 -I$(IDIR) -fsanitize=address -Wall -Wextra -Wpedantic -Wpadded -g
-TARGET = tcp
+SRCS := $(wildcard $(SRC_DIR)/*.c $(SRC_DIR)/util/*.c)
+OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+DEPS := $(OBJS:%.o=%.d)
 
-SRC = $(wildcard $(SRCDIR)/*.c)
-OBJS = $(patsubst %.c,$(ODIR)/%.o,$(notdir $(SRC)))
-DEPS = $(wildcard $(IDIR)/*.h)
+CC := gcc
+CFLAGS_DEBUG := -std=c99 -fsanitize=address -Wall -Wextra -Wpedantic -Wpadded -MMD -MP -g
+CFLAGS_RELEASE := -std=c99 -o2 -Wall -Wextra -Wpedantic -Wpadded -MMD -MP
+INCLUDES := -I$(INCLUDE_DIR)
 
-.PHONY: all
-all: $(TARGET)
+TEST_BUILD_DIR := build/tests
+TEST_DIR := tests
+TEST_INCLUDES := -I$(INCLUDE_DIR) -I$(TEST_DIR)
+TEST_SRCS := $(wildcard $(TEST_DIR)/*.c)
+TEST_OBJS := $(TEST_SRCS:$(TEST_DIR)/%.c=$(TEST_BUILD_DIR)/%.o)
+TEST_DEPS := $(TEST_OBJS:%.o=%.d)
+TEST_TARGET := test_runner
+TEST_CFLAGS := -std=c99 -fsanitize=address -Wall -Wextra -Wpedantic -Wpadded -MMD -MP -g
 
-$(ODIR)/%.o: $(SRCDIR)/%.c $(DEPS) | $(ODIR)
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(info Test sources: $(TEST_SRCS))
+$(info Test objects: $(TEST_OBJS))
+$(info Test build dir: $(TEST_BUILD_DIR))
 
-$(OBJS): $(ODIR)
-$(ODIR):
-	mkdir $(ODIR)
+MODE ?= DEBUG
+MODE_UPPER := $(shell echo $(MODE) | tr '[:lower:]' '[:upper:]')
 
-.PHONY: tun tun-clean
-tun:
-	sudo ./scripts/add_tun.sh tun0
-tun-clean:
-	sudo ./scripts/del_tun.sh tun0
+ifeq ($(MODE_UPPER), DEBUG)
+    CFLAGS := $(CFLAGS_DEBUG)
+else ifeq ($(MODE_UPPER), RELEASE)
+    CFLAGS := $(CFLAGS_RELEASE)
+else
+    $(error Unsupported build mode: "$(MODE)". Please use one of the supported modes: RELEASE or DEBUG)
+endif
 
-tcp: $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+TARGET := tcp
 
-.PHONY: clean
+.PHONY: all test clean
+
+all: $(BIN_DIR)/$(TARGET)
+
+$(BIN_DIR)/$(TARGET): $(OBJS) | $(BIN_DIR)
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^
+
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
+	mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $(INCLUDES) -c -o $@ $<
+
+$(BUILD_DIR):
+	mkdir -p $@
+
+$(BIN_DIR):
+	mkdir -p $@
+
+test: $(BIN_DIR)/$(TEST_TARGET)
+	@./$(BIN_DIR)/$(TEST_TARGET)
+
+$(BIN_DIR)/$(TEST_TARGET): $(TEST_OBJS) | $(BIN_DIR)
+	$(CC) $(TEST_CFLAGS) $(TEST_INCLUDES) -o $@ $^
+
+$(TEST_BUILD_DIR)/%.o: $(TEST_DIR)/%.c | $(TEST_BUILD_DIR)
+	$(CC) $(TEST_CFLAGS) $(TEST_INCLUDES) -c -o $@ $<
+
+$(TEST_BUILD_DIR):
+	mkdir -p $@
+
+-include $(DEPS) $(TEST_DEPS)
+
 clean:
-	rm -f $(ODIR)/*.o tcp
-
+	rm -rf $(BUILD_DIR) $(BIN_DIR)
