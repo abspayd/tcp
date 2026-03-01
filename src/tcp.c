@@ -147,13 +147,15 @@ void handle_packet(int tun_fd, tcb_table_t *tcb_table, struct tcp_ip_packet *pac
 
     enum tcp_state current_state = tcb_table_get(tcb_table, &key);
     // if (packet->tcp_header.flag_syn) {
-    if (TCP_SYN(packet->tcp_header.flags)) {
+    if (TCP_SYN(ntohs(packet->tcp_header.flags))) {
         tcb_table_set(tcb_table, &key, TCP_STATE_SYN_RECEIEVED);
         // Send syn-ack
         struct tcp_ip_packet packet_out;
 
         uint16_t tcp_flags = 0;
-        tcp_flags = (uint8_t)sizeof(struct tcp_hdr) / 4;
+        TCP_SET_OFFSET(tcp_flags, (uint8_t)sizeof(struct tcp_hdr) / 4);
+        TCP_SET_ACK(tcp_flags);
+        TCP_SET_SYN(tcp_flags);
 
         memset(&packet_out, 0, sizeof(packet_out));
         packet_out.tcp_header = (struct tcp_hdr){
@@ -162,7 +164,7 @@ void handle_packet(int tun_fd, tcb_table_t *tcb_table, struct tcp_ip_packet *pac
             // .seq = htonl(ntohl(packet->tcp_header.seq) + 1), // htonl((uint32_t)rand()),
             .seq = htonl((uint32_t)rand()),
             .ack = htonl(ntohl(packet->tcp_header.seq) + 1),
-            .flags = htonl(tcp_flags),
+            .flags = htons(tcp_flags),
             // .data_offset = (uint8_t)(sizeof(struct tcp_hdr)) / 4,
             // .flag_ack = 1,
             // .flag_syn = 1,

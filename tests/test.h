@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #define WHITE "\033[0;37m"
+#define STRONG_WHITE "\033[0;97m"
 #define RED "\033[0;31m"
 #define GREEN "\033[0;32m"
 
@@ -17,9 +18,9 @@ typedef struct {
 #define ASSERT(condition)                                                                                              \
     do {                                                                                                               \
         if (!(condition)) {                                                                                            \
-            printf("%sFAIL%s: %s (%s:%d)\n", RED, WHITE, #condition, __FILE_NAME__, __LINE__);                         \
+            printf(" %s(%s:%d) %sFAIL%s:\n    %s\n", WHITE, __FILE_NAME__, __LINE__, RED, STRONG_WHITE, #condition);   \
         } else {                                                                                                       \
-            printf("%sPASS%s (%s:%d)\n", GREEN, WHITE, __FILE_NAME__, __LINE__);                                       \
+            printf(" %s(%s:%d) %sPASS%s\n", WHITE, __FILE_NAME__, __LINE__, GREEN, STRONG_WHITE);                      \
         }                                                                                                              \
     } while (0)
 

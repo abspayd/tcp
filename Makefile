@@ -9,7 +9,7 @@ DEPS := $(OBJS:%.o=%.d)
 
 CC := gcc
 CFLAGS_DEBUG := -std=c99 -fsanitize=address -Wall -Wextra -Wpedantic -Wpadded -MMD -MP -g
-CFLAGS_RELEASE := -std=c99 -o2 -Wall -Wextra -Wpedantic -Wpadded -MMD -MP
+CFLAGS_RELEASE := -std=c99 -O2 -Wall -Wextra -Wpedantic -Wpadded -MMD -MP
 INCLUDES := -I$(INCLUDE_DIR)
 
 TEST_BUILD_DIR := build/tests
@@ -20,10 +20,6 @@ TEST_OBJS := $(TEST_SRCS:$(TEST_DIR)/%.c=$(TEST_BUILD_DIR)/%.o)
 TEST_DEPS := $(TEST_OBJS:%.o=%.d)
 TEST_TARGET := test_runner
 TEST_CFLAGS := -std=c99 -fsanitize=address -Wall -Wextra -Wpedantic -Wpadded -MMD -MP -g
-
-$(info Test sources: $(TEST_SRCS))
-$(info Test objects: $(TEST_OBJS))
-$(info Test build dir: $(TEST_BUILD_DIR))
 
 MODE ?= DEBUG
 MODE_UPPER := $(shell echo $(MODE) | tr '[:lower:]' '[:upper:]')
@@ -67,7 +63,13 @@ $(TEST_BUILD_DIR)/%.o: $(TEST_DIR)/%.c | $(TEST_BUILD_DIR)
 $(TEST_BUILD_DIR):
 	mkdir -p $@
 
--include $(DEPS) $(TEST_DEPS)
+
+ifeq (,$(filter clean,$(MAKECMDGOALS)))
+    -include $(DEPS)
+    ifeq ($(filter test,$(MAKECMDGOALS)),test)
+        -include $(TEST_DEPS)
+    endif
+endif
 
 clean:
 	rm -rf $(BUILD_DIR) $(BIN_DIR)

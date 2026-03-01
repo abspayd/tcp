@@ -36,8 +36,10 @@ struct tcb {
 #define TOGGLE_BIT(BF, N) ((BF) ^= (1 << (N)))
 #define READ_BIT(BF, N) (((BF) >> (N)) & 1)
 
-#define TCP_OFFSET(flags) (0xF000 & (flags) >> 12)
-#define TCP_RESERVED(flags) (0x0F00 & (flags) >> 8)
+// #define TCP_OFFSET(flags) (0xF000 & (flags) >> 12)
+#define TCP_OFFSET(flags) ((0xF000 & (flags)) >> 12)
+#define TCP_RESERVED(flags) ((0x0F00 & (flags)) >> 8)
+
 #define TCP_CWR(BF) READ_BIT(BF, 7)
 #define TCP_ECE(BF) READ_BIT(BF, 6)
 #define TCP_URG(BF) READ_BIT(BF, 5)
@@ -46,6 +48,17 @@ struct tcb {
 #define TCP_RST(BF) READ_BIT(BF, 2)
 #define TCP_SYN(BF) READ_BIT(BF, 1)
 #define TCP_FIN(BF) READ_BIT(BF, 0)
+
+#define TCP_SET_OFFSET(flags, offset) ((flags) |= (((offset) & 0x000F) << 12))
+#define TCP_SET_RESERVED(flags, reserved) ((flags) |= (((reserved) & 0x00F0) << 8))
+#define TCP_SET_CWR(BF) SET_BIT(BF, 7)
+#define TCP_SET_ECE(BF) SET_BIT(BF, 6)
+#define TCP_SET_URG(BF) SET_BIT(BF, 5)
+#define TCP_SET_ACK(BF) SET_BIT(BF, 4)
+#define TCP_SET_PSH(BF) SET_BIT(BF, 3)
+#define TCP_SET_RST(BF) SET_BIT(BF, 2)
+#define TCP_SET_SYN(BF) SET_BIT(BF, 1)
+#define TCP_SET_FIN(BF) SET_BIT(BF, 0)
 
 struct tcp_hdr {
     uint16_t s_port;
