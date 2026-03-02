@@ -44,7 +44,7 @@ bool icmp_respond(int tun_fd, char *buffer, size_t buffer_len) {
     memcpy(&ip_options, buffer + offset, ip_options_len);
     offset += ip_options_len;
 
-    uint16_t sum = ip_checksum(&ip_header, ip_options, ip_options_len);
+    uint16_t sum = IP_Checksum(&ip_header, ip_options, ip_options_len);
     if (ip_header.check != sum) {
         printf("[WARN] --- IP checksum expected %u, got %u instead.\n", ip_header.check, sum);
         return false;
@@ -66,7 +66,7 @@ bool icmp_respond(int tun_fd, char *buffer, size_t buffer_len) {
     printf("[DEBUG] ---  Checksum: %u\n", ntohs(icmp_header.checksum));
     printf("[DEBUG] ---  Data: %u\n", ntohl(icmp_header.data));
     printf("[DEBUG] ---  Payload: [");
-    for (int i = 0; i < data_len; i++) {
+    for (size_t i = 0; i < data_len; i++) {
         printf("0x%02X", data[i]);
         // printf("%c", data[i]);
         if (i < data_len - 1) {
@@ -107,7 +107,7 @@ bool icmp_respond(int tun_fd, char *buffer, size_t buffer_len) {
         .daddr = ip_header.saddr,
     };
     ip_reply.tot_len = htons(sizeof(icmp_header) + sizeof(ip_reply) + data_len);
-    ip_reply.check = ip_checksum(&ip_reply, NULL, 0);
+    ip_reply.check = IP_Checksum(&ip_reply, NULL, 0);
 
     size_t reply_len = sizeof(struct iphdr) + sizeof(struct icmp_hdr) + data_len;
     char reply[reply_len];
@@ -118,7 +118,7 @@ bool icmp_respond(int tun_fd, char *buffer, size_t buffer_len) {
     printf("[DEBUG] --- tun_fd: %d\n", tun_fd);
     printf("[DEBUG] --- reply len: %zu\n", reply_len);
     printf("[DEBUG] --- ");
-    for (int i = 0; i < reply_len; i++) {
+    for (size_t i = 0; i < reply_len; i++) {
         printf("0x%02X", reply[i]);
         if (i < reply_len - 1) {
             printf(" ");
