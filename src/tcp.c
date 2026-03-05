@@ -2,7 +2,7 @@
 #include "ip.h"
 #include "ping.h"
 #include "tun.h"
-#include "util/util.h"
+#include "util/tcb_table.h"
 #include <arpa/inet.h>
 #include <bits/endian.h>
 #include <linux/if.h>
@@ -14,38 +14,35 @@
 #include <string.h>
 #include <unistd.h>
 
-// TODO: refactor each function to follow the format "TCP_Function_Name"
-int TCP_Get_Header(struct iphdr *ip_header, const char *buf, size_t buf_len, struct tcp_hdr **tcp_header);
-static void TCP_Debug(struct tcp_hdr *tcp_header);
-void TCP_Pseudo_Header_Debug(struct pseudo_hdr *pseudo_header);
-uint16_t TCP_Checksum(struct pseudo_hdr *pseudo_header, struct tcp_hdr *tcp_header, const char *payload,
+int TCP_Get_Header(struct iphdr *ip_header, const char *buf, size_t buf_len, struct TCP_Header **tcp_header);
+static void TCP_Debug(struct TCP_Header *tcp_header);
+void TCP_Pseudo_Header_Debug(struct Pseudo_IP_Header *pseudo_header);
+uint16_t TCP_Checksum(struct Pseudo_IP_Header *pseudo_header, struct TCP_Header *tcp_header, const char *payload,
                       size_t payload_len);
-bool TCP_Send_Packet(int tun_fd, struct tcp_ip_packet *packet);
-void TCP_Handle_Packet(int tun_fd, tcb_table_t *tcb_table, struct tcp_ip_packet *packet);
-bool TCP_Unwrap_Packet(const char *buf, size_t buf_len, struct tcp_ip_packet **packet);
+bool TCP_Send_Packet(int tun_fd, struct TCP_IP_Packet *packet);
+void TCP_Handle_Packet(int tun_fd, TCB_Table *tcb_table, struct TCP_IP_Packet *packet);
+bool TCP_Unwrap_Packet(const char *buf, size_t buf_len, struct TCP_IP_Packet **packet);
 
-int TCP_Get_Header(struct iphdr *ip_header, const char *buf, size_t buf_len, struct tcp_hdr **tcp_header) {
-    if (buf_len < sizeof(struct iphdr) + sizeof(struct tcp_hdr)) {
+int TCP_Get_Header(struct iphdr *ip_header, const char *buf, size_t buf_len, struct TCP_Header **tcp_header) {
+    if (buf_len < sizeof(struct iphdr) + sizeof(struct TCP_Header)) {
         printf("Buffer size %zu too small for TCP header\n", buf_len);
         return -1;
     }
-    *tcp_header = (struct tcp_hdr *)(buf + (ip_header->ihl * 4));
+    *tcp_header = (struct TCP_Header *)(buf + (ip_header->ihl * 4));
     return 0;
 }
 
-static void TCP_Debug(struct tcp_hdr *tcp_header) {
+static void TCP_Debug(struct TCP_Header *tcp_header) {
     printf("== TCP header ==\n");
-    printf("  source port: %u, dest port: %u\n", ntohs(tcp_header->s_port), ntohs(tcp_header->d_port));
-    printf("  seq: %u\n", ntohl(tcp_header->seq));
-    printf("  ack: %u\n", ntohl(tcp_header->ack));
-    printf("  data offset: %u, reserved: %u, flags: %u, window: %u\n", TCP_OFFSET(ntohs(tcp_header->flags)),
-           TCP_RESERVED(ntohs(tcp_header->flags)), TCP_CWR(ntohs(tcp_header->flags)), ntohs(tcp_header->window));
-    // printf("  data offset: %u, reserved: %u, flags: %u, window: %u\n", tcp_header->data_offset, tcp_header->reserved,
-    //        tcp_header->flag_cwr, ntohs(tcp_header->window));
-    printf("  checksum: %u, urg ptr: %u\n", ntohs(tcp_header->checksum), ntohs(tcp_header->urgent_ptr));
+    printf("  source port: %u, dest port: %u\n", tcp_header->s_port, tcp_header->d_port);
+    printf("  seq: %u\n", tcp_header->seq);
+    printf("  ack: %u\n", tcp_header->ack);
+    printf("  data offset: %u, reserved: %u, flags: %u, window: %u\n", TCP_OFFSET(tcp_header->flags),
+           TCP_RESERVED(tcp_header->flags), TCP_CWR(tcp_header->flags), tcp_header->window);
+    printf("  checksum: %u, urg ptr: %u\n", tcp_header->checksum, tcp_header->urgent_ptr);
 }
 
-void TCP_Pseudo_Header_Debug(struct pseudo_hdr *pseudo_header) {
+void TCP_Pseudo_Header_Debug(struct Pseudo_IP_Header *pseudo_header) {
     printf("== Pseudo header ==\n");
     printf("  s_addr: %u\n", ntohl(pseudo_header->source_ipaddr));
     printf("  d_addr: %u\n", ntohl(pseudo_header->dest_ipaddr));
@@ -53,18 +50,18 @@ void TCP_Pseudo_Header_Debug(struct pseudo_hdr *pseudo_header) {
     printf("  tcp length: %u\n", ntohs(pseudo_header->tcp_length));
 }
 
-uint16_t TCP_Checksum(struct pseudo_hdr *pseudo_header, struct tcp_hdr *tcp_header, const char *payload,
+uint16_t TCP_Checksum(struct Pseudo_IP_Header *pseudo_header, struct TCP_Header *tcp_header, const char *payload,
                       size_t payload_len) {
-    size_t buf_len = sizeof(struct pseudo_hdr) + sizeof(struct tcp_hdr) + payload_len;
+    size_t buf_len = sizeof(struct Pseudo_IP_Header) + sizeof(struct TCP_Header) + payload_len;
     unsigned char buf[buf_len];
     memset(&buf, 0, buf_len);
-    memcpy(buf, pseudo_header, sizeof(struct pseudo_hdr));
-    memcpy(buf + sizeof(struct pseudo_hdr), tcp_header, sizeof(struct tcp_hdr));
+    memcpy(buf, pseudo_header, sizeof(struct Pseudo_IP_Header));
+    memcpy(buf + sizeof(struct Pseudo_IP_Header), tcp_header, sizeof(struct TCP_Header));
     if (payload_len > 0) {
-        memcpy(buf + sizeof(struct pseudo_hdr) + sizeof(struct tcp_hdr), payload, payload_len);
+        memcpy(buf + sizeof(struct Pseudo_IP_Header) + sizeof(struct TCP_Header), payload, payload_len);
     }
 
-    ((struct tcp_hdr *)(buf + sizeof(struct pseudo_hdr)))->checksum = 0;
+    ((struct TCP_Header *)(buf + sizeof(struct Pseudo_IP_Header)))->checksum = 0;
 
     uint32_t sum = 0;
     uint16_t *ptr = (uint16_t *)buf;
@@ -82,14 +79,14 @@ uint16_t TCP_Checksum(struct pseudo_hdr *pseudo_header, struct tcp_hdr *tcp_head
     return (uint16_t)~sum;
 }
 
-bool TCP_Send_Packet(int tun_fd, struct tcp_ip_packet *packet) {
+bool TCP_Send_Packet(int tun_fd, struct TCP_IP_Packet *packet) {
     if (packet == NULL) {
         printf("Attempted to send a packet with value of NULL\n");
         return false;
     }
 
-    size_t buf_len = sizeof(struct iphdr) + sizeof(struct tcp_hdr) + packet->ip_options_len + packet->tcp_options_len +
-                     packet->data_len;
+    size_t buf_len = sizeof(struct iphdr) + sizeof(struct TCP_Header) + packet->ip_options_len +
+                     packet->tcp_options_len + packet->data_len;
     char buf[buf_len];
     memset(buf, 0, buf_len);
 
@@ -104,11 +101,11 @@ bool TCP_Send_Packet(int tun_fd, struct tcp_ip_packet *packet) {
         return false;
     }
     offset += packet->ip_options_len;
-    if (memcpy(buf + offset, &packet->tcp_header, sizeof(struct tcp_hdr)) == NULL) {
+    if (memcpy(buf + offset, &packet->tcp_header, sizeof(struct TCP_Header)) == NULL) {
         printf("Unable to write TCP header!\n");
         return false;
     }
-    offset += sizeof(struct tcp_hdr);
+    offset += sizeof(struct TCP_Header);
     if (memcpy(buf + offset, &packet->tcp_options, packet->tcp_options_len) == NULL) {
         printf("Unable to write TCP header options!\n");
         return false;
@@ -127,8 +124,8 @@ bool TCP_Send_Packet(int tun_fd, struct tcp_ip_packet *packet) {
     return true;
 }
 
-void TCP_Handle_Packet(int tun_fd, tcb_table_t *tcb_table, struct tcp_ip_packet *packet) {
-    tcb_key_t key = {
+void TCP_Handle_Packet(int tun_fd, TCB_Table *tcb_table, struct TCP_IP_Packet *packet) {
+    TCB_Key key = {
         .s_addr = packet->ip_header.saddr,
         .s_port = packet->tcp_header.s_port,
         .d_addr = packet->ip_header.daddr,
@@ -137,28 +134,27 @@ void TCP_Handle_Packet(int tun_fd, tcb_table_t *tcb_table, struct tcp_ip_packet 
 
     // enum tcp_state current_state = tcb_table_get(tcb_table, &key); // TODO
 
+    printf("TCP Flags: 0x%04X\n", packet->tcp_header.flags);
+
     // if (packet->tcp_header.flag_syn) {
     if (TCP_SYN(packet->tcp_header.flags)) {
-        tcb_table_set(tcb_table, &key, TCP_STATE_SYN_RECEIEVED);
+        tcb_table_set_state(tcb_table, &key, TCP_STATE_SYN_RECEIEVED);
         // Send syn-ack
-        struct tcp_ip_packet packet_out;
+        struct TCP_IP_Packet packet_out;
 
         uint16_t tcp_flags = 0;
-        TCP_SET_OFFSET(tcp_flags, (uint8_t)sizeof(struct tcp_hdr) / 4);
+        TCP_SET_OFFSET(tcp_flags, (uint8_t)sizeof(struct TCP_Header) / 4);
         TCP_SET_ACK(tcp_flags);
         TCP_SET_SYN(tcp_flags);
 
         memset(&packet_out, 0, sizeof(packet_out));
-        packet_out.tcp_header = (struct tcp_hdr){
+        packet_out.tcp_header = (struct TCP_Header){
             .s_port = htons(packet->tcp_header.d_port),
             .d_port = htons(packet->tcp_header.s_port),
             // .seq = htonl(ntohl(packet->tcp_header.seq) + 1), // htonl((uint32_t)rand()),
             .seq = htonl((uint32_t)rand()),
             .ack = htonl(ntohl(packet->tcp_header.seq) + 1),
-            .flags = tcp_flags,
-            // .data_offset = (uint8_t)(sizeof(struct tcp_hdr)) / 4,
-            // .flag_ack = 1,
-            // .flag_syn = 1,
+            .flags = htons(tcp_flags),
             .window = htons(65535),
             .checksum = 0,
             .urgent_ptr = 0,
@@ -167,7 +163,7 @@ void TCP_Handle_Packet(int tun_fd, tcb_table_t *tcb_table, struct tcp_ip_packet 
             .ihl = (uint8_t)(sizeof(struct iphdr) / 4),
             .version = 4,
             .tos = 0,
-            .tot_len = htons(sizeof(struct iphdr) + sizeof(struct tcp_hdr)),
+            .tot_len = htons(sizeof(struct iphdr) + sizeof(struct TCP_Header)),
             .id = htons((uint16_t)rand()),
             .frag_off = 0,
             .ttl = 64,
@@ -176,12 +172,12 @@ void TCP_Handle_Packet(int tun_fd, tcb_table_t *tcb_table, struct tcp_ip_packet 
             .saddr = htonl(packet->ip_header.daddr),
             .daddr = htonl(packet->ip_header.saddr),
         };
-        struct pseudo_hdr pseudo_header = {
+        struct Pseudo_IP_Header pseudo_header = {
             .source_ipaddr = htonl(packet_out.ip_header.saddr),
             .dest_ipaddr = htonl(packet_out.ip_header.daddr),
             .zero = 0,
             .protocol = packet_out.ip_header.protocol,
-            .tcp_length = htons(sizeof(struct tcp_hdr)),
+            .tcp_length = htons(sizeof(struct TCP_Header)),
 
         };
         uint16_t sum = TCP_Checksum(&pseudo_header, &packet_out.tcp_header, NULL, 0);
@@ -201,12 +197,12 @@ void TCP_Handle_Packet(int tun_fd, tcb_table_t *tcb_table, struct tcp_ip_packet 
 
 // Unwrap a byte stream into a TCP/IP packet. Returns true if the byte stream contains
 // a valid TCP/IP packet and was unwrapped, and false otherwise.
-bool TCP_Unwrap_Packet(const char *buf, size_t buf_len, struct tcp_ip_packet **packet) {
-    if (buf_len < sizeof(struct iphdr) + sizeof(struct tcp_hdr)) {
+bool TCP_Unwrap_Packet(const char *buf, size_t buf_len, struct TCP_IP_Packet **packet) {
+    if (buf_len < sizeof(struct iphdr) + sizeof(struct TCP_Header)) {
         return false;
     }
 
-    memset(*packet, 0, sizeof(struct tcp_ip_packet));
+    memset(*packet, 0, sizeof(struct TCP_IP_Packet));
 
     memcpy(&(*packet)->ip_header, buf, sizeof(struct iphdr));
     if ((*packet)->ip_header.version != 4) {
@@ -234,20 +230,20 @@ bool TCP_Unwrap_Packet(const char *buf, size_t buf_len, struct tcp_ip_packet **p
         return false;
     }
 
-    memcpy(&(*packet)->tcp_header, buf + ((*packet)->ip_header.ihl * 4), sizeof(struct tcp_hdr));
+    memcpy(&(*packet)->tcp_header, buf + ((*packet)->ip_header.ihl * 4), sizeof(struct TCP_Header));
     // if ((*packet)->tcp_header.data_offset > sizeof(struct tcp_hdr)) {
     // size_t tcp_options_len = ((*packet)->tcp_header.data_offset * 4) - sizeof(struct tcp_hdr);
-    if (TCP_OFFSET((*packet)->tcp_header.flags) > sizeof(struct tcp_hdr)) {
-        size_t tcp_options_len = (TCP_OFFSET((*packet)->tcp_header.flags) * 4) - sizeof(struct tcp_hdr);
+    if (TCP_OFFSET((*packet)->tcp_header.flags) > sizeof(struct TCP_Header)) {
+        size_t tcp_options_len = (TCP_OFFSET((*packet)->tcp_header.flags) * 4) - sizeof(struct TCP_Header);
         char *tcp_options = malloc(tcp_options_len);
-        memcpy(tcp_options, buf + sizeof(struct iphdr) + sizeof(struct tcp_hdr), tcp_options_len);
+        memcpy(tcp_options, buf + sizeof(struct iphdr) + sizeof(struct TCP_Header), tcp_options_len);
 
         (*packet)->tcp_options_len = tcp_options_len;
         (*packet)->tcp_options = tcp_options;
     }
 
     size_t headers_length =
-        sizeof(struct iphdr) + (*packet)->ip_options_len + sizeof(struct tcp_hdr) + (*packet)->tcp_options_len;
+        sizeof(struct iphdr) + (*packet)->ip_options_len + sizeof(struct TCP_Header) + (*packet)->tcp_options_len;
     if (buf_len > headers_length) {
         size_t data_len = buf_len - headers_length;
         char *data = malloc(data_len);
@@ -257,15 +253,15 @@ bool TCP_Unwrap_Packet(const char *buf, size_t buf_len, struct tcp_ip_packet **p
         (*packet)->data = data;
     }
 
-    struct pseudo_hdr pseudo_header = {
+    struct Pseudo_IP_Header pseudo_header = {
         .source_ipaddr = (*packet)->ip_header.saddr,
         .dest_ipaddr = (*packet)->ip_header.daddr,
         .zero = 0,
         .protocol = (*packet)->ip_header.protocol,
-        .tcp_length = htons(sizeof(struct tcp_hdr) + (*packet)->tcp_options_len + (*packet)->data_len),
+        .tcp_length = htons(sizeof(struct TCP_Header) + (*packet)->tcp_options_len + (*packet)->data_len),
     };
 
-    size_t payload_offset = ((*packet)->ip_header.ihl * 4) + sizeof(struct tcp_hdr);
+    size_t payload_offset = ((*packet)->ip_header.ihl * 4) + sizeof(struct TCP_Header);
     if (payload_offset >= buf_len) {
         printf("Packet too small to fit TCP/IP headers!\n");
         return false;
@@ -295,6 +291,7 @@ bool TCP_Unwrap_Packet(const char *buf, size_t buf_len, struct tcp_ip_packet **p
     (*packet)->tcp_header.d_port = ntohs((*packet)->tcp_header.d_port);
     (*packet)->tcp_header.seq = ntohl((*packet)->tcp_header.seq);
     (*packet)->tcp_header.ack = ntohl((*packet)->tcp_header.ack);
+    (*packet)->tcp_header.flags = ntohs((*packet)->tcp_header.flags);
     (*packet)->tcp_header.window = ntohs((*packet)->tcp_header.window);
     (*packet)->tcp_header.checksum = ntohs((*packet)->tcp_header.checksum);
     (*packet)->tcp_header.urgent_ptr = ntohs((*packet)->tcp_header.urgent_ptr);
@@ -318,7 +315,7 @@ int main(void) {
         return 1;
     }
 
-    tcb_table_t *tcb_table = tcb_table_create(256);
+    TCB_Table *tcb_table = tcb_table_create(256);
 
     printf("Listening to device %s\n", dev);
     const int BUFFER_LENGTH = 1024 * 4;
@@ -345,28 +342,25 @@ int main(void) {
             }
         }
 
-        struct tcp_ip_packet *packet = malloc(sizeof(struct tcp_ip_packet));
-        if (!TCP_Unwrap_Packet(buffer, count, &packet)) {
-            // printf("Failed to unwrap packet\n");
-        } else {
-            // printf("Successfully unwrapped packet!\n");
+        struct TCP_IP_Packet *packet = malloc(sizeof(struct TCP_IP_Packet));
+        if (TCP_Unwrap_Packet(buffer, count, &packet)) {
+            printf("Unwrapped packet.\n");
+            TCP_Handle_Packet(tun_fd, tcb_table, packet);
+
+            // tcb_key_t key = {
+            //     .s_addr = ntohl(packet->ip_header.saddr),
+            //     .s_port = ntohs(packet->tcp_header.s_port),
+            //     .d_addr = ntohl(packet->ip_header.daddr),
+            //     .d_port = ntohs(packet->tcp_header.d_port),
+            // };
+            // if (!tcb_table_set(tcb_table, &key, TCP_STATE_ESTABLISHED)) {
+            //     printf("Unable to set record in TCB table\n");
+            //     exit(1);
+            // }
+            //
+            // printf("STATE: %d\n", tcb_table_get(tcb_table, &key));
+            // tcb_table_print(tcb_table);
         }
-
-        TCP_Handle_Packet(tun_fd, tcb_table, packet);
-
-        // tcb_key_t key = {
-        //     .s_addr = ntohl(packet->ip_header.saddr),
-        //     .s_port = ntohs(packet->tcp_header.s_port),
-        //     .d_addr = ntohl(packet->ip_header.daddr),
-        //     .d_port = ntohs(packet->tcp_header.d_port),
-        // };
-        // if (!tcb_table_set(tcb_table, &key, TCP_STATE_ESTABLISHED)) {
-        //     printf("Unable to set record in TCB table\n");
-        //     exit(1);
-        // }
-        //
-        // printf("STATE: %d\n", tcb_table_get(tcb_table, &key));
-        // tcb_table_print(tcb_table);
 
         if (packet->ip_options_len > 0) {
             free(packet->ip_options);

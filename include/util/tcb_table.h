@@ -11,24 +11,27 @@ typedef struct {
     in_addr_t d_addr;
     uint16_t s_port;
     uint16_t d_port;
-} tcb_key_t;
+} TCB_Key;
 
-typedef struct tcb_entry_t {
-    tcb_key_t key;
-    enum tcp_state value;
-    struct tcb_entry_t *next;
-} tcb_entry_t;
+typedef struct TCB_Entry {
+    TCB_Key key;
+    // enum tcp_state value;
+
+    struct TCB tcb;
+
+    struct TCB_Entry *next;
+} TCB_Entry;
 
 typedef struct {
-    tcb_entry_t **entries;
+    TCB_Entry **entries;
     size_t capacity;
-} tcb_table_t;
+} TCB_Table;
 
-tcb_table_t *tcb_table_create(size_t capacity);
-bool tcb_table_set(tcb_table_t *tcb_table, tcb_key_t *key, enum tcp_state state);
-enum tcp_state tcb_table_get(tcb_table_t *tcb_table, tcb_key_t *key);
-bool tcb_table_delete(tcb_table_t *tcb_table, tcb_key_t *key);
-void tcb_table_destroy(tcb_table_t *tcb_table);
-void tcb_table_print(tcb_table_t *tcb_table);
+extern TCB_Table *tcb_table_create(size_t capacity);
+extern bool tcb_table_set_state(TCB_Table *tcb_table, TCB_Key *key, enum TCP_State state);
+extern enum TCP_State tcb_table_get(TCB_Table *tcb_table, TCB_Key *key);
+extern bool tcb_table_delete(TCB_Table *tcb_table, TCB_Key *key);
+extern void tcb_table_destroy(TCB_Table *tcb_table);
+extern void tcb_table_print(TCB_Table *tcb_table);
 
 #endif

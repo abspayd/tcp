@@ -1,48 +1,48 @@
-#include "util/util.h"
+#include "util/tcb_table.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-unsigned int tcb_hash(tcb_key_t *key, size_t capacity) {
+unsigned int tcb_hash(TCB_Key *key, size_t capacity) {
     return (key->s_addr + key->s_port + key->d_addr + key->d_port) % capacity;
 }
 
-bool tcb_key_compare(tcb_key_t *k1, tcb_key_t *k2) {
+bool tcb_key_compare(TCB_Key *k1, TCB_Key *k2) {
     return (k1->s_addr == k2->s_addr && k1->s_port == k2->s_port && k1->d_addr == k2->d_addr &&
             k1->d_port == k2->d_port);
 }
 
-tcb_table_t *tcb_table_create(size_t capacity) {
-    tcb_table_t *table = malloc(sizeof(tcb_table_t));
-    memset(table, 0, sizeof(tcb_table_t));
+TCB_Table *tcb_table_create(size_t capacity) {
+    TCB_Table *table = malloc(sizeof(TCB_Table));
+    memset(table, 0, sizeof(TCB_Table));
 
     table->capacity = capacity;
 
-    table->entries = malloc(sizeof(tcb_entry_t) * capacity);
-    memset(table->entries, 0, sizeof(tcb_entry_t) * capacity);
+    table->entries = malloc(sizeof(TCB_Entry) * capacity);
+    memset(table->entries, 0, sizeof(TCB_Entry) * capacity);
 
     return table;
 }
 
-bool tcb_table_set(tcb_table_t *tcb_table, tcb_key_t *key, enum tcp_state state) {
+bool tcb_table_set_state(TCB_Table *tcb_table, TCB_Key *key, enum TCP_State state) {
     if (tcb_table == NULL || key == NULL || tcb_table->entries == NULL) {
         return false;
     }
     int index = tcb_hash(key, tcb_table->capacity);
-    tcb_entry_t *entry = tcb_table->entries[index];
+    TCB_Entry *entry = tcb_table->entries[index];
     while (entry != NULL && entry->next != NULL) {
         if (tcb_key_compare(key, &entry->key)) {
             // update existing tcb entry
-            entry->value = state;
+            entry->tcb.state = state;
             return true;
         }
         entry = entry->next;
     }
 
-    tcb_entry_t *new_entry = malloc(sizeof(tcb_entry_t));
+    TCB_Entry *new_entry = malloc(sizeof(TCB_Entry));
     new_entry->key = *key;
-    new_entry->value = state;
+    new_entry->tcb.state = state;
     new_entry->next = NULL;
 
     if (entry != NULL) {
@@ -54,30 +54,30 @@ bool tcb_table_set(tcb_table_t *tcb_table, tcb_key_t *key, enum tcp_state state)
     return true;
 }
 
-enum tcp_state tcb_table_get(tcb_table_t *tcb_table, tcb_key_t *key) {
+enum TCP_State tcb_table_get_state(TCB_Table *tcb_table, TCB_Key *key) {
     if (tcb_table == NULL || key == NULL) {
         return TCP_STATE_CLOSED;
     }
 
     int index = tcb_hash(key, tcb_table->capacity);
-    tcb_entry_t *entry = tcb_table->entries[index];
+    TCB_Entry *entry = tcb_table->entries[index];
     while (entry != NULL) {
         if (tcb_key_compare(key, &entry->key)) {
-            return entry->value;
+            return entry->tcb.state;
         }
         entry = entry->next;
     }
     return TCP_STATE_CLOSED;
 }
 
-bool tcb_table_delete(tcb_table_t *tcb_table, tcb_key_t *key) {
+bool tcb_table_delete(TCB_Table *tcb_table, TCB_Key *key) {
     if (tcb_table == NULL || key == NULL) {
         return false;
     }
 
     int index = tcb_hash(key, tcb_table->capacity);
-    tcb_entry_t *entry = tcb_table->entries[index];
-    tcb_entry_t *prev = NULL;
+    TCB_Entry *entry = tcb_table->entries[index];
+    TCB_Entry *prev = NULL;
     while (entry != NULL) {
         if (tcb_key_compare(key, &entry->key)) {
             if (prev != NULL) {
@@ -92,15 +92,15 @@ bool tcb_table_delete(tcb_table_t *tcb_table, tcb_key_t *key) {
     return false;
 }
 
-void tcb_table_destroy(tcb_table_t *tcb_table) {
+void tcb_table_destroy(TCB_Table *tcb_table) {
     if (tcb_table == NULL) {
         return;
     }
 
     for (int i = 0; i < (int)tcb_table->capacity; i++) {
-        tcb_entry_t *entry = tcb_table->entries[i];
+        TCB_Entry *entry = tcb_table->entries[i];
         while (entry != NULL) {
-            tcb_entry_t *next = entry->next;
+            TCB_Entry *next = entry->next;
             free(entry);
             entry = next;
         }
@@ -110,14 +110,14 @@ void tcb_table_destroy(tcb_table_t *tcb_table) {
     free(tcb_table);
 }
 
-void tcb_table_print(tcb_table_t *tcb_table) {
+void tcb_table_print(TCB_Table *tcb_table) {
     printf("=== TCB Table ===\n");
     for (int i = 0; i < (int)tcb_table->capacity; i++) {
-        tcb_entry_t *entry = tcb_table->entries[i];
+        TCB_Entry *entry = tcb_table->entries[i];
         if (entry != NULL) {
             printf("  %d  ", i);
             while (entry != NULL) {
-                printf(" -> %d", entry->value);
+                printf(" -> %d", entry->tcb.state);
                 entry = entry->next;
             }
             printf("\n");

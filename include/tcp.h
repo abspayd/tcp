@@ -9,7 +9,7 @@
 #define TCP_PROTOCOL 6
 #define MSS 536
 
-enum tcp_state {
+enum TCP_State {
     TCP_STATE_CLOSED,
     TCP_STATE_LISTEN,
     TCP_STATE_SYN_SENT,
@@ -23,12 +23,26 @@ enum tcp_state {
     TCP_STATE_TIME_WAIT,
 };
 
-struct tcb {
+struct TCB {
     in_addr_t s_addr;
     in_addr_t d_addr;
+
+    uint32_t iss;
+    uint32_t irs;
+    uint32_t send_unacknowledged;
+    uint32_t send_next;
+    uint32_t rcv_next;
+    uint32_t send_wl1;
+    uint32_t send_wl2;
+
+    uint16_t send_window;
+    uint16_t rcv_window;
+    uint16_t send_urgent_ptr;
+    uint16_t rcv_urgent_ptr;
+
     uint16_t s_port;
     uint16_t d_port;
-    enum tcp_state state;
+    enum TCP_State state;
 };
 
 #define SET_BIT(BF, N) ((BF) |= (1 << (N)))
@@ -36,7 +50,6 @@ struct tcb {
 #define TOGGLE_BIT(BF, N) ((BF) ^= (1 << (N)))
 #define READ_BIT(BF, N) (((BF) >> (N)) & 1)
 
-// #define TCP_OFFSET(flags) (0xF000 & (flags) >> 12)
 #define TCP_OFFSET(flags) ((0xF000 & (flags)) >> 12)
 #define TCP_RESERVED(flags) ((0x0F00 & (flags)) >> 8)
 
@@ -60,7 +73,7 @@ struct tcb {
 #define TCP_SET_SYN(BF) SET_BIT(BF, 1)
 #define TCP_SET_FIN(BF) SET_BIT(BF, 0)
 
-struct tcp_hdr {
+struct TCP_Header {
     uint16_t s_port;
     uint16_t d_port;
     uint32_t seq;
@@ -72,7 +85,7 @@ struct tcp_hdr {
 };
 
 // pseudo ip header for checksum
-struct pseudo_hdr {
+struct Pseudo_IP_Header {
     uint32_t source_ipaddr;
     uint32_t dest_ipaddr;
     uint8_t zero;
@@ -80,9 +93,9 @@ struct pseudo_hdr {
     uint16_t tcp_length;
 };
 
-struct tcp_ip_packet {
+struct TCP_IP_Packet {
     struct iphdr ip_header;
-    struct tcp_hdr tcp_header;
+    struct TCP_Header tcp_header;
     size_t ip_options_len;
     size_t tcp_options_len;
     size_t data_len;
