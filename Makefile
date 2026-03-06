@@ -8,8 +8,8 @@ OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 DEPS := $(OBJS:%.o=%.d)
 
 CC := gcc
-CFLAGS_DEBUG := -std=c99 -fsanitize=address -Wall -Wextra -Wpedantic -Wpadded -MMD -MP -g
-CFLAGS_RELEASE := -std=c99 -O2 -Wall -Wextra -Wpedantic -Wpadded -MMD -MP
+CFLAGS_DEBUG := -std=c99 -fsanitize=address -Wall -Wextra -Wpedantic -Wpadded -MMD -MP -lmd -g
+CFLAGS_RELEASE := -std=c99 -O2 -Wall -Wextra -Wpedantic -Wpadded -MMD -MP -lmd
 INCLUDES := -I$(INCLUDE_DIR)
 
 TEST_BUILD_DIR := build/tests

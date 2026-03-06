@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "tcp.h"
 #include "ip.h"
 #include "ping.h"
@@ -5,13 +6,17 @@
 #include "util/tcb_table.h"
 #include <arpa/inet.h>
 #include <bits/endian.h>
+#include <bits/time.h>
 #include <linux/if.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
+#include <sha2.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
 int TCP_Get_Header(struct iphdr *ip_header, const char *buf, size_t buf_len, struct TCP_Header **tcp_header);
@@ -124,6 +129,8 @@ bool TCP_Send_Packet(int tun_fd, struct TCP_IP_Packet *packet) {
     return true;
 }
 
+void TCP_State_Listen() {}
+
 void TCP_Handle_Packet(int tun_fd, TCB_Table *tcb_table, struct TCP_IP_Packet *packet) {
     TCB_Key key = {
         .s_addr = packet->ip_header.saddr,
@@ -134,9 +141,6 @@ void TCP_Handle_Packet(int tun_fd, TCB_Table *tcb_table, struct TCP_IP_Packet *p
 
     // enum tcp_state current_state = tcb_table_get(tcb_table, &key); // TODO
 
-    printf("TCP Flags: 0x%04X\n", packet->tcp_header.flags);
-
-    // if (packet->tcp_header.flag_syn) {
     if (TCP_SYN(packet->tcp_header.flags)) {
         tcb_table_set_state(tcb_table, &key, TCP_STATE_SYN_RECEIEVED);
         // Send syn-ack
@@ -151,14 +155,33 @@ void TCP_Handle_Packet(int tun_fd, TCB_Table *tcb_table, struct TCP_IP_Packet *p
         packet_out.tcp_header = (struct TCP_Header){
             .s_port = htons(packet->tcp_header.d_port),
             .d_port = htons(packet->tcp_header.s_port),
-            // .seq = htonl(ntohl(packet->tcp_header.seq) + 1), // htonl((uint32_t)rand()),
-            .seq = htonl((uint32_t)rand()),
             .ack = htonl(ntohl(packet->tcp_header.seq) + 1),
             .flags = htons(tcp_flags),
             .window = htons(65535),
             .checksum = 0,
             .urgent_ptr = 0,
         };
+
+        // set initial sequence number
+        struct timespec tp;
+        clock_gettime(CLOCK_REALTIME, &tp);
+        uint64_t time = tp.tv_sec + (tp.tv_nsec / 1000);
+        uint64_t secret = (uint32_t)rand();
+
+        SHA2_CTX ctx;
+        SHA256Init(&ctx);
+        SHA256Update(&ctx, (uint8_t *)&time, sizeof(time));
+        SHA256Update(&ctx, (uint8_t *)&secret, sizeof(secret));
+        SHA256Update(&ctx, (uint8_t *)&(packet->ip_header.saddr), sizeof(packet->ip_header.saddr));
+        SHA256Update(&ctx, (uint8_t *)&(packet->ip_header.daddr), sizeof(packet->ip_header.daddr));
+        SHA256Update(&ctx, (uint8_t *)&(packet->tcp_header.s_port), sizeof(packet->tcp_header.s_port));
+        SHA256Update(&ctx, (uint8_t *)&(packet->tcp_header.d_port), sizeof(packet->tcp_header.d_port));
+
+        uint8_t seq_buf[SHA256_DIGEST_LENGTH];
+        SHA256Final(seq_buf, &ctx);
+
+        packet_out.tcp_header.seq = htonl(*(uint32_t *)&seq_buf);
+
         packet_out.ip_header = (struct iphdr){
             .ihl = (uint8_t)(sizeof(struct iphdr) / 4),
             .version = 4,
@@ -231,8 +254,6 @@ bool TCP_Unwrap_Packet(const char *buf, size_t buf_len, struct TCP_IP_Packet **p
     }
 
     memcpy(&(*packet)->tcp_header, buf + ((*packet)->ip_header.ihl * 4), sizeof(struct TCP_Header));
-    // if ((*packet)->tcp_header.data_offset > sizeof(struct tcp_hdr)) {
-    // size_t tcp_options_len = ((*packet)->tcp_header.data_offset * 4) - sizeof(struct tcp_hdr);
     if (TCP_OFFSET((*packet)->tcp_header.flags) > sizeof(struct TCP_Header)) {
         size_t tcp_options_len = (TCP_OFFSET((*packet)->tcp_header.flags) * 4) - sizeof(struct TCP_Header);
         char *tcp_options = malloc(tcp_options_len);
