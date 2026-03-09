@@ -2,8 +2,8 @@
 #include "tcp.h"
 #include "ip.h"
 #include "ping.h"
+#include "tcb_table.h"
 #include "tun.h"
-#include "util/tcb_table.h"
 #include <arpa/inet.h>
 #include <bits/endian.h>
 #include <bits/time.h>
@@ -139,7 +139,7 @@ void TCP_Handle_Packet(int tun_fd, TCB_Table *tcb_table, struct TCP_IP_Packet *p
         .d_port = packet->tcp_header.d_port,
     };
 
-    // enum tcp_state current_state = tcb_table_get(tcb_table, &key); // TODO
+    enum TCP_State current_state = tcb_table_get_state(tcb_table, &key);
 
     if (TCP_SYN(packet->tcp_header.flags)) {
         tcb_table_set_state(tcb_table, &key, TCP_STATE_SYN_RECEIEVED);
@@ -336,7 +336,7 @@ int main(void) {
         return 1;
     }
 
-    TCB_Table *tcb_table = tcb_table_create(256);
+    TCB_Table *tcb_table = TCB_Table_Create(256);
 
     printf("Listening to device %s\n", dev);
     const int BUFFER_LENGTH = 1024 * 4;
@@ -348,8 +348,6 @@ int main(void) {
             close(tun_fd);
             return 1;
         }
-
-        // printf("== Received %zu bytes ==\n", count);
 
         // ICMP requests
         if ((size_t)count >= sizeof(struct iphdr)) {

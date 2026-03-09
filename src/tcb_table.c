@@ -1,4 +1,4 @@
-#include "util/tcb_table.h"
+#include "tcb_table.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,7 +13,7 @@ bool tcb_key_compare(TCB_Key *k1, TCB_Key *k2) {
             k1->d_port == k2->d_port);
 }
 
-TCB_Table *tcb_table_create(size_t capacity) {
+TCB_Table *TCB_Table_Create(size_t capacity) {
     TCB_Table *table = malloc(sizeof(TCB_Table));
     memset(table, 0, sizeof(TCB_Table));
 
@@ -23,6 +23,12 @@ TCB_Table *tcb_table_create(size_t capacity) {
     memset(table->entries, 0, sizeof(TCB_Entry) * capacity);
 
     return table;
+}
+
+bool tcb_table_set(TCB_Table *tcb_table, TCB_Key *key, struct TCB *tcb) {
+    // TODO: FNV-1a
+    // http://www.isthe.com/chongo/tech/comp/fnv/index.html#FNV-1a
+    return false;
 }
 
 bool tcb_table_set_state(TCB_Table *tcb_table, TCB_Key *key, enum TCP_State state) {
