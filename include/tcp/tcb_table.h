@@ -1,7 +1,7 @@
 #ifndef TCB_TABLE_H_INCLUDED
 #define TCB_TABLE_H_INCLUDED
 
-#include "tcp.h"
+#include "types.h"
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <sys/types.h>
@@ -26,11 +26,11 @@ typedef struct {
 } TCB_Table;
 
 extern TCB_Table *TCB_Table_Create(size_t capacity);
-extern bool tcb_table_set(TCB_Table *tcb_table, TCB_Key *key, struct TCB *tcb);
-extern bool tcb_table_set_state(TCB_Table *tcb_table, TCB_Key *key, enum TCP_State state);
-extern enum TCP_State tcb_table_get_state(TCB_Table *tcb_table, TCB_Key *key);
-extern bool tcb_table_delete(TCB_Table *tcb_table, TCB_Key *key);
-extern void tcb_table_destroy(TCB_Table *tcb_table);
-extern void tcb_table_print(TCB_Table *tcb_table);
+extern bool TCB_Table_Set(TCB_Table *tcb_table, TCB_Key *key, struct TCB *tcb);
+extern bool TCB_Table_Set_State(TCB_Table *tcb_table, TCB_Key *key, enum TCP_State state);
+extern enum TCP_State TCB_Table_Get_State(TCB_Table *tcb_table, TCB_Key *key);
+extern bool TCB_Table_Delete(TCB_Table *tcb_table, TCB_Key *key);
+extern void TCB_Table_Destroy(TCB_Table *tcb_table);
+extern void TCB_Table_Print(TCB_Table *tcb_table);
 
 #endif

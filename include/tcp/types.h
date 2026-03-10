@@ -1,10 +1,8 @@
-#ifndef TCP_H_INCLUDED
-#define TCP_H_INCLUDED
+#ifndef TCP_TYPES_H_INCLUDED
+#define TCP_TYPES_H_INCLUDED
 
-#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
-#include <stdint.h>
 
 #define TCP_PROTOCOL 6
 #define MSS 536
@@ -13,7 +11,7 @@ enum TCP_State {
     TCP_STATE_CLOSED,
     TCP_STATE_LISTEN,
     TCP_STATE_SYN_SENT,
-    TCP_STATE_SYN_RECEIEVED,
+    TCP_STATE_SYN_RECEIVED,
     TCP_STATE_ESTABLISHED,
     TCP_STATE_FIN_WAIT_1,
     TCP_STATE_FIN_WAIT_2,

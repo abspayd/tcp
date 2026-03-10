@@ -1,9 +1,7 @@
 #define _GNU_SOURCE
-#include "tcp.h"
+#include "tcp/tcp.h"
 #include "ip.h"
-#include "ping.h"
-#include "tcb_table.h"
-#include "tun.h"
+#include "tcp/tcb_table.h"
 #include <arpa/inet.h>
 #include <bits/endian.h>
 #include <bits/time.h>
@@ -25,8 +23,6 @@ void TCP_Pseudo_Header_Debug(struct Pseudo_IP_Header *pseudo_header);
 uint16_t TCP_Checksum(struct Pseudo_IP_Header *pseudo_header, struct TCP_Header *tcp_header, const char *payload,
                       size_t payload_len);
 bool TCP_Send_Packet(int tun_fd, struct TCP_IP_Packet *packet);
-void TCP_Handle_Packet(int tun_fd, TCB_Table *tcb_table, struct TCP_IP_Packet *packet);
-bool TCP_Unwrap_Packet(const char *buf, size_t buf_len, struct TCP_IP_Packet **packet);
 
 int TCP_Get_Header(struct iphdr *ip_header, const char *buf, size_t buf_len, struct TCP_Header **tcp_header) {
     if (buf_len < sizeof(struct iphdr) + sizeof(struct TCP_Header)) {
@@ -139,10 +135,10 @@ void TCP_Handle_Packet(int tun_fd, TCB_Table *tcb_table, struct TCP_IP_Packet *p
         .d_port = packet->tcp_header.d_port,
     };
 
-    enum TCP_State current_state = tcb_table_get_state(tcb_table, &key);
+    enum TCP_State current_state = TCB_Table_Get_State(tcb_table, &key);
 
     if (TCP_SYN(packet->tcp_header.flags)) {
-        tcb_table_set_state(tcb_table, &key, TCP_STATE_SYN_RECEIEVED);
+        TCB_Table_Set_State(tcb_table, &key, TCP_STATE_SYN_RECEIVED);
         // Send syn-ack
         struct TCP_IP_Packet packet_out;
 
@@ -321,80 +317,4 @@ bool TCP_Unwrap_Packet(const char *buf, size_t buf_len, struct TCP_IP_Packet **p
     }
 
     return true;
-}
-
-int main(void) {
-    char dev[IFNAMSIZ] = TUN_DEVICE;
-    int tun_fd = tun_alloc(dev);
-    if (tun_fd < 0) {
-        perror("tun_alloc");
-        return 1;
-    }
-
-    if (set_dev_ip_addr(dev, "192.168.100.1") < 0) {
-        perror("Unable to set address on tun device");
-        return 1;
-    }
-
-    TCB_Table *tcb_table = TCB_Table_Create(256);
-
-    printf("Listening to device %s\n", dev);
-    const int BUFFER_LENGTH = 1024 * 4;
-    char buffer[BUFFER_LENGTH];
-    while (1) {
-        ssize_t count = read(tun_fd, &buffer, BUFFER_LENGTH);
-        if (count < 0) {
-            perror("read(tun_fd)");
-            close(tun_fd);
-            return 1;
-        }
-
-        // ICMP requests
-        if ((size_t)count >= sizeof(struct iphdr)) {
-            struct iphdr ip_header;
-            memset(&ip_header, 0, sizeof(ip_header));
-            ip_header = *(struct iphdr *)buffer;
-            if (ip_header.protocol == ICMP_PROTOCOL) {
-                printf("PING\n");
-                icmp_respond(tun_fd, buffer, count);
-                continue;
-            }
-        }
-
-        struct TCP_IP_Packet *packet = malloc(sizeof(struct TCP_IP_Packet));
-        if (TCP_Unwrap_Packet(buffer, count, &packet)) {
-            printf("Unwrapped packet.\n");
-            TCP_Handle_Packet(tun_fd, tcb_table, packet);
-
-            // tcb_key_t key = {
-            //     .s_addr = ntohl(packet->ip_header.saddr),
-            //     .s_port = ntohs(packet->tcp_header.s_port),
-            //     .d_addr = ntohl(packet->ip_header.daddr),
-            //     .d_port = ntohs(packet->tcp_header.d_port),
-            // };
-            // if (!tcb_table_set(tcb_table, &key, TCP_STATE_ESTABLISHED)) {
-            //     printf("Unable to set record in TCB table\n");
-            //     exit(1);
-            // }
-            //
-            // printf("STATE: %d\n", tcb_table_get(tcb_table, &key));
-            // tcb_table_print(tcb_table);
-        }
-
-        if (packet->ip_options_len > 0) {
-            free(packet->ip_options);
-        }
-        if (packet->tcp_options_len > 0) {
-            free(packet->tcp_options);
-        }
-        if (packet->data_len > 0) {
-            free(packet->data);
-        }
-        free(packet);
-    }
-
-    tcb_table_destroy(tcb_table);
-
-    close(tun_fd);
-    return 0;
 }
