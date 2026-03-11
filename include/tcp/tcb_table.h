@@ -26,11 +26,12 @@ typedef struct {
 } TCB_Table;
 
 extern TCB_Table *TCB_Table_Create(size_t capacity);
+extern uint64_t TCB_Hash(TCB_Key *key, size_t capacity);
 extern bool TCB_Table_Set(TCB_Table *tcb_table, TCB_Key *key, struct TCB *tcb);
 extern bool TCB_Table_Set_State(TCB_Table *tcb_table, TCB_Key *key, enum TCP_State state);
 extern enum TCP_State TCB_Table_Get_State(TCB_Table *tcb_table, TCB_Key *key);
 extern bool TCB_Table_Delete(TCB_Table *tcb_table, TCB_Key *key);
-extern void TCB_Table_Destroy(TCB_Table *tcb_table);
+extern void TCB_Table_Free(TCB_Table *tcb_table);
 extern void TCB_Table_Print(TCB_Table *tcb_table);
 
 #endif

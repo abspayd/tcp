@@ -38,5 +38,6 @@ extern void test_tcb_table_init(void);
 
 // TCB tests
 extern void test_tcp_header_flags(void);
+extern void test_tcb_table_hash(void);
 
 #endif

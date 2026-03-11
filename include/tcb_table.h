@@ -1,7 +1,7 @@
 #ifndef TCB_TABLE_H_INCLUDED
 #define TCB_TABLE_H_INCLUDED
 
-#include "tcp.h"
+#include "tcp/types.h"
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <sys/types.h>
@@ -30,7 +30,7 @@ extern bool TCB_Table_Set(TCB_Table *tcb_table, TCB_Key *key, struct TCB *tcb);
 extern bool TCB_Table_Set_State(TCB_Table *tcb_table, TCB_Key *key, enum TCP_State state);
 extern enum TCP_State TCB_Table_Get_State(TCB_Table *tcb_table, TCB_Key *key);
 extern bool TCB_Table_Delete(TCB_Table *tcb_table, TCB_Key *key);
-extern void TCB_Table_Destroy(TCB_Table *tcb_table);
+extern void TCB_Table_Free(TCB_Table *tcb_table);
 extern void TCB_Table_Print(TCB_Table *tcb_table);
 
 #endif

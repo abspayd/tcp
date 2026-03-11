@@ -4,8 +4,22 @@
 #include <stdlib.h>
 #include <string.h>
 
-static unsigned int TCB_Hash(TCB_Key *key, size_t capacity) {
-    return (key->s_addr + key->s_port + key->d_addr + key->d_port) % capacity;
+#define FNV_PRIME 1099511628211ULL
+#define FNV_OFFSET_BASIS 14695981039346656037ULL
+
+// Hash using the FNV-1a hashing technique
+// See: http://www.isthe.com/chongo/tech/comp/fnv/index.html#FNV-1a
+uint64_t TCB_Hash(TCB_Key *key, size_t capacity) {
+    uint8_t *data = (uint8_t *)key;
+    size_t key_length = sizeof(TCB_Key) / sizeof(uint8_t);
+
+    uint64_t hash = FNV_OFFSET_BASIS;
+    for (int i = 0; i < key_length; i++) {
+        hash ^= data[i];
+        hash *= FNV_PRIME;
+    }
+
+    return hash % capacity;
 }
 
 static bool TCB_Key_Compare(TCB_Key *k1, TCB_Key *k2) {
@@ -19,25 +33,21 @@ TCB_Table *TCB_Table_Create(size_t capacity) {
 
     table->capacity = capacity;
 
-    table->entries = malloc(sizeof(TCB_Entry) * capacity);
-    memset(table->entries, 0, sizeof(TCB_Entry) * capacity);
+    table->entries = malloc(sizeof(TCB_Entry *) * capacity);
+    memset(table->entries, 0, sizeof(TCB_Entry *) * capacity);
 
     return table;
 }
 
-bool TCB_Table_Set(TCB_Table *tcb_table, TCB_Key *key, struct TCB *tcb) {
-    // TODO: FNV-1a
-    // http://www.isthe.com/chongo/tech/comp/fnv/index.html#FNV-1a
-    return false;
-}
+bool TCB_Table_Set(TCB_Table *tcb_table, TCB_Key *key, struct TCB *tcb) { return false; }
 
 bool TCB_Table_Set_State(TCB_Table *tcb_table, TCB_Key *key, enum TCP_State state) {
     if (tcb_table == NULL || key == NULL || tcb_table->entries == NULL) {
         return false;
     }
-    int index = TCB_Hash(key, tcb_table->capacity);
+    uint64_t index = TCB_Hash(key, tcb_table->capacity);
     TCB_Entry *entry = tcb_table->entries[index];
-    while (entry != NULL && entry->next != NULL) {
+    while (entry != NULL) {
         if (TCB_Key_Compare(key, &entry->key)) {
             // update existing tcb entry
             entry->tcb.state = state;
@@ -92,13 +102,13 @@ bool TCB_Table_Delete(TCB_Table *tcb_table, TCB_Key *key) {
             free(entry);
             return true;
         }
-        entry = entry->next;
         prev = entry;
+        entry = entry->next;
     }
     return false;
 }
 
-void TCB_Table_Destroy(TCB_Table *tcb_table) {
+void TCB_Table_Free(TCB_Table *tcb_table) {
     if (tcb_table == NULL) {
         return;
     }

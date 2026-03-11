@@ -78,7 +78,7 @@ int main(void) {
         free(packet);
     }
 
-    TCB_Table_Destroy(tcb_table);
+    TCB_Table_Free(tcb_table);
 
     close(tun_fd);
     return 0;

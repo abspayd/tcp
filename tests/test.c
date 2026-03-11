@@ -2,7 +2,11 @@
 
 int main(void) {
     test_t tests[] = {
+        // TCB Table
         {.name = "test_init", .fn = test_tcb_table_init},
+        {.name = "test_init", .fn = test_tcb_table_hash},
+
+        // TCP
         {.name = "Test TCP header flags", .fn = test_tcp_header_flags},
     };
 
