@@ -2,24 +2,34 @@ INCLUDE_DIR := include
 SRC_DIR := src
 BUILD_DIR := build
 BIN_DIR := bin
-
-SRCS := $(wildcard $(SRC_DIR)/*.c $(SRC_DIR)/util/*.c)
-OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
-DEPS := $(OBJS:%.o=%.d)
+TEST_BUILD_DIR := $(BUILD_DIR)/tests
+TEST_DIR := tests
 
 CC := gcc
 CFLAGS_DEBUG := -std=c99 -fsanitize=address -Wall -Wextra -Wpedantic -Wpadded -MMD -MP -lmd -g
 CFLAGS_RELEASE := -std=c99 -O2 -Wall -Wextra -Wpedantic -Wpadded -MMD -MP -lmd
 INCLUDES := -I$(INCLUDE_DIR)
 
-TEST_BUILD_DIR := build/tests
-TEST_DIR := tests
+SRCS := $(wildcard $(SRC_DIR)/*.c $(SRC_DIR)/util/*.c)
+OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+DEPS := $(OBJS:%.o=%.d)
+
+MAIN_OBJ := $(BUILD_DIR)/main.o
+
+LIB_SRCS := $(filter-out $(SRC_DIR)/main.c,$(SRCS))
+LIB_OBJS := $(LIB_SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+LIB_TARGET := $(BUILD_DIR)/libtcp.a
+
+$(info $(LIB_SRCS))
+$(info $(LIB_OBJS))
+
 TEST_INCLUDES := -I$(INCLUDE_DIR) -I$(TEST_DIR)
 TEST_SRCS := $(wildcard $(TEST_DIR)/*.c)
 TEST_OBJS := $(TEST_SRCS:$(TEST_DIR)/%.c=$(TEST_BUILD_DIR)/%.o)
 TEST_DEPS := $(TEST_OBJS:%.o=%.d)
-TEST_TARGET := test_runner
-TEST_CFLAGS := -std=c99 -fsanitize=address -Wall -Wextra -Wpedantic -Wpadded -MMD -MP -g
+
+TEST_TARGET := $(BIN_DIR)/test_runner
+TEST_CFLAGS := -std=c99 -fsanitize=address -Wall -Wextra -Wpedantic -Wpadded -MMD -MP -L$(BUILD_DIR) -lmd -ltcp -g
 
 MODE ?= DEBUG
 MODE_UPPER := $(shell echo $(MODE) | tr '[:lower:]' '[:upper:]')
@@ -32,18 +42,24 @@ else
     $(error Unsupported build mode: "$(MODE)". Please use one of the supported modes: RELEASE or DEBUG)
 endif
 
-TARGET := tcp
+TARGET := $(BIN_DIR)/tcp
 
 .PHONY: all test clean
 
-all: $(BIN_DIR)/$(TARGET)
+all: $(TARGET)
 
-$(BIN_DIR)/$(TARGET): $(OBJS) | $(BIN_DIR)
+$(BUILD_DIR)/$(LIB_TARGET):
+	$(CC) $(CFLAGS) $(INCLUDES) -c -o $@ $<
+
+$(TARGET): $(MAIN_OBJ) $(LIB_OBJS) | $(BIN_DIR)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(INCLUDES) -c -o $@ $<
+
+$(LIB_TARGET): $(LIB_OBJS)
+	ar rcs $@ $^
 
 $(BUILD_DIR):
 	mkdir -p $@
@@ -51,10 +67,10 @@ $(BUILD_DIR):
 $(BIN_DIR):
 	mkdir -p $@
 
-test: $(BIN_DIR)/$(TEST_TARGET)
-	@./$(BIN_DIR)/$(TEST_TARGET)
+test: $(TEST_TARGET)
+	@./$(TEST_TARGET)
 
-$(BIN_DIR)/$(TEST_TARGET): $(TEST_OBJS) | $(BIN_DIR)
+$(TEST_TARGET): $(TEST_OBJS) $(LIB_TARGET) | $(BIN_DIR)
 	$(CC) $(TEST_CFLAGS) $(TEST_INCLUDES) -o $@ $^
 
 $(TEST_BUILD_DIR)/%.o: $(TEST_DIR)/%.c | $(TEST_BUILD_DIR)
@@ -62,7 +78,6 @@ $(TEST_BUILD_DIR)/%.o: $(TEST_DIR)/%.c | $(TEST_BUILD_DIR)
 
 $(TEST_BUILD_DIR):
 	mkdir -p $@
-
 
 ifeq (,$(filter clean,$(MAKECMDGOALS)))
     -include $(DEPS)

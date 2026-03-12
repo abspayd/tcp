@@ -6,6 +6,8 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
+#define TCB_TABLE_DEFAULT_CAPACITY 256
+
 typedef struct {
     in_addr_t s_addr;
     in_addr_t d_addr;
@@ -25,7 +27,7 @@ typedef struct {
     size_t capacity;
 } TCB_Table;
 
-extern TCB_Table *TCB_Table_Create(size_t capacity);
+extern TCB_Table *TCB_Table_Create();
 extern uint64_t TCB_Hash(TCB_Key *key, size_t capacity);
 extern bool TCB_Table_Set(TCB_Table *tcb_table, TCB_Key *key, struct TCB *tcb);
 extern bool TCB_Table_Set_State(TCB_Table *tcb_table, TCB_Key *key, enum TCP_State state);

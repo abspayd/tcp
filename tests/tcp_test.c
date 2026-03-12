@@ -16,5 +16,7 @@ void test_tcp_header_flags(void) {
     ASSERT_EQ(TCP_FIN(0x0001), 1);
 
     // TODO: fix function mapping (tests aren't building object files)
-    TCP_Unwrap_Packet(0, 0, 0);
+    bool result = TCP_Unwrap_Packet(0, 0, 0);
+
+    ASSERT(result);
 }

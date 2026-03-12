@@ -21,7 +21,7 @@ int main(void) {
         return 1;
     }
 
-    TCB_Table *tcb_table = TCB_Table_Create(256);
+    TCB_Table *tcb_table = TCB_Table_Create();
 
     printf("Listening to device %s\n", dev);
     const int BUFFER_LENGTH = 1024 * 4;

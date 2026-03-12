@@ -19,7 +19,7 @@ uint64_t TCB_Hash(TCB_Key *key, size_t capacity) {
         hash *= FNV_PRIME;
     }
 
-    return hash % capacity;
+    return hash & (capacity - 1);
 }
 
 static bool TCB_Key_Compare(TCB_Key *k1, TCB_Key *k2) {
@@ -27,14 +27,14 @@ static bool TCB_Key_Compare(TCB_Key *k1, TCB_Key *k2) {
             k1->d_port == k2->d_port);
 }
 
-TCB_Table *TCB_Table_Create(size_t capacity) {
+TCB_Table *TCB_Table_Create() {
     TCB_Table *table = malloc(sizeof(TCB_Table));
     memset(table, 0, sizeof(TCB_Table));
 
-    table->capacity = capacity;
+    table->capacity = TCB_TABLE_DEFAULT_CAPACITY;
 
-    table->entries = malloc(sizeof(TCB_Entry *) * capacity);
-    memset(table->entries, 0, sizeof(TCB_Entry *) * capacity);
+    table->entries = malloc(sizeof(TCB_Entry *) * TCB_TABLE_DEFAULT_CAPACITY);
+    memset(table->entries, 0, sizeof(TCB_Entry *) * TCB_TABLE_DEFAULT_CAPACITY);
 
     return table;
 }
