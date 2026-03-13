@@ -1,6 +1,10 @@
 #ifndef TEST_H_INCLUDED
 #define TEST_H_INCLUDED
 
+/**
+ * @file test.h
+ */
+
 #include <stdio.h>
 
 #define WHITE "\033[0;37m"
@@ -34,10 +38,15 @@ typedef struct {
 /* === TEST FUNCTIONS === */
 
 // TCP tests
-extern void test_tcb_table_init(void);
+extern void test_tcp_header_flags(void);
 
 // TCB tests
-extern void test_tcp_header_flags(void);
-extern void test_tcb_table_hash(void);
+extern void test_tcb_table_init(void);
+extern void test_tcb_table_set(void);
+extern void test_tcb_table_get(void);
+extern void test_tcb_table_delete(void);
+extern void test_tcb_table_collision_set(void);
+extern void test_tcb_table_collision_get(void);
+extern void test_tcb_table_collision_delete(void);
 
 #endif

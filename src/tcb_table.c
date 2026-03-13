@@ -9,12 +9,12 @@
 
 // Hash using the FNV-1a hashing technique
 // See: http://www.isthe.com/chongo/tech/comp/fnv/index.html#FNV-1a
-uint64_t TCB_Hash(TCB_Key *key, size_t capacity) {
+static uint64_t TCB_Hash(TCB_Key *key, size_t capacity) {
     uint8_t *data = (uint8_t *)key;
     size_t key_length = sizeof(TCB_Key) / sizeof(uint8_t);
 
     uint64_t hash = FNV_OFFSET_BASIS;
-    for (int i = 0; i < key_length; i++) {
+    for (size_t i = 0; i < key_length; i++) {
         hash ^= data[i];
         hash *= FNV_PRIME;
     }
@@ -39,51 +39,45 @@ TCB_Table *TCB_Table_Create() {
     return table;
 }
 
-bool TCB_Table_Set(TCB_Table *tcb_table, TCB_Key *key, struct TCB *tcb) { return false; }
+void TCB_Table_Set(TCB_Table *tcb_table, TCB_Key *key, TCB *tcb) {
+    uint64_t hash = TCB_Hash(key, tcb_table->capacity);
 
-bool TCB_Table_Set_State(TCB_Table *tcb_table, TCB_Key *key, enum TCP_State state) {
-    if (tcb_table == NULL || key == NULL || tcb_table->entries == NULL) {
-        return false;
-    }
-    uint64_t index = TCB_Hash(key, tcb_table->capacity);
-    TCB_Entry *entry = tcb_table->entries[index];
+    TCB_Entry *prev = NULL;
+    TCB_Entry *entry = tcb_table->entries[hash];
     while (entry != NULL) {
         if (TCB_Key_Compare(key, &entry->key)) {
-            // update existing tcb entry
-            entry->tcb.state = state;
-            return true;
+            entry->tcb = *tcb;
+            return;
         }
+        prev = entry;
         entry = entry->next;
     }
 
     TCB_Entry *new_entry = malloc(sizeof(TCB_Entry));
+
     new_entry->key = *key;
-    new_entry->tcb.state = state;
+    new_entry->tcb = *tcb;
     new_entry->next = NULL;
 
-    if (entry != NULL) {
-        entry->next = new_entry;
+    if (prev != NULL) {
+        prev->next = new_entry;
     } else {
-        tcb_table->entries[index] = new_entry;
+        tcb_table->entries[hash] = new_entry;
     }
-
-    return true;
 }
 
-enum TCP_State TCB_Table_Get_State(TCB_Table *tcb_table, TCB_Key *key) {
-    if (tcb_table == NULL || key == NULL) {
-        return TCP_STATE_CLOSED;
-    }
+TCB *TCB_Table_Get(TCB_Table *tcb_table, TCB_Key *key) {
+    uint64_t hash = TCB_Hash(key, tcb_table->capacity);
 
-    int index = TCB_Hash(key, tcb_table->capacity);
-    TCB_Entry *entry = tcb_table->entries[index];
+    TCB_Entry *entry = tcb_table->entries[hash];
     while (entry != NULL) {
         if (TCB_Key_Compare(key, &entry->key)) {
-            return entry->tcb.state;
+            return &entry->tcb;
         }
         entry = entry->next;
     }
-    return TCP_STATE_CLOSED;
+
+    return NULL;
 }
 
 bool TCB_Table_Delete(TCB_Table *tcb_table, TCB_Key *key) {

@@ -21,7 +21,7 @@ enum TCP_State {
     TCP_STATE_TIME_WAIT,
 };
 
-struct TCB {
+typedef struct {
     in_addr_t s_addr;
     in_addr_t d_addr;
 
@@ -41,7 +41,7 @@ struct TCB {
     uint16_t s_port;
     uint16_t d_port;
     enum TCP_State state;
-};
+} TCB;
 
 #define SET_BIT(BF, N) ((BF) |= (1 << (N)))
 #define UNSET_BIT(BF, N) ((BF) &= ~(1 << (N)))
@@ -71,7 +71,7 @@ struct TCB {
 #define TCP_SET_SYN(BF) SET_BIT(BF, 1)
 #define TCP_SET_FIN(BF) SET_BIT(BF, 0)
 
-struct TCP_Header {
+typedef struct {
     uint16_t s_port;
     uint16_t d_port;
     uint32_t seq;
@@ -80,26 +80,26 @@ struct TCP_Header {
     uint16_t window;
     uint16_t checksum;
     uint16_t urgent_ptr;
-};
+} TCP_Header;
 
 // pseudo ip header for checksum
-struct Pseudo_IP_Header {
+typedef struct {
     uint32_t source_ipaddr;
     uint32_t dest_ipaddr;
     uint8_t zero;
     uint8_t protocol;
     uint16_t tcp_length;
-};
+} Pseudo_IP_Header;
 
-struct TCP_IP_Packet {
+typedef struct {
     struct iphdr ip_header;
-    struct TCP_Header tcp_header;
+    TCP_Header tcp_header;
     size_t ip_options_len;
     size_t tcp_options_len;
     size_t data_len;
     char *ip_options;
     char *tcp_options;
     char *data;
-};
+} TCP_IP_Packet;
 
 #endif
