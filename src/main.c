@@ -46,7 +46,7 @@ int main(void) {
             }
         }
 
-        struct TCP_IP_Packet *packet = malloc(sizeof(struct TCP_IP_Packet));
+        TCP_IP_Packet *packet = malloc(sizeof(TCP_IP_Packet));
         if (TCP_Unwrap_Packet(buffer, count, &packet)) {
             printf("Unwrapped packet.\n");
             TCP_Handle_Packet(tun_fd, tcb_table, packet);

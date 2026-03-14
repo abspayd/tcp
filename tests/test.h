@@ -41,12 +41,7 @@ typedef struct {
 extern void test_tcp_header_flags(void);
 
 // TCB tests
-extern void test_tcb_table_init(void);
-extern void test_tcb_table_set(void);
-extern void test_tcb_table_get(void);
-extern void test_tcb_table_delete(void);
-extern void test_tcb_table_collision_set(void);
-extern void test_tcb_table_collision_get(void);
-extern void test_tcb_table_collision_delete(void);
+extern void test_tcb_table_crud(void);
+extern void test_tcb_table_collision_crud(void);
 
 #endif

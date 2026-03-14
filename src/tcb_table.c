@@ -92,6 +92,8 @@ bool TCB_Table_Delete(TCB_Table *tcb_table, TCB_Key *key) {
         if (TCB_Key_Compare(key, &entry->key)) {
             if (prev != NULL) {
                 prev->next = entry->next;
+            } else {
+                tcb_table->entries[index] = entry->next;
             }
             free(entry);
             return true;

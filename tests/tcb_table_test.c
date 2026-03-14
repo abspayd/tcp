@@ -1,58 +1,156 @@
 #include "tcp/tcb_table.h"
 #include "tcp/types.h"
 #include "test.h"
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <stdlib.h>
+#include <string.h>
 
 /**
  * @file tcb_table_test.c
  */
 
-void test_tcb_table_init(void) {
-    TCB_Table *tb = TCB_Table_Create();
+/**
+ * @brief Test CRUD operations on a TCB table
+ *
+ * Test setting, getting, updating, and deleting records from a TCB table
+ */
+void test_tcb_table_crud(void) {
+    TCB_Table *table = TCB_Table_Create();
+    ASSERT(table);
 
-    ASSERT(tb);
-
-    ASSERT(tb->capacity > 0);
-
-    TCB_Table_Free(tb);
-}
-
-void test_tcb_table_set(void) {
-    TCB_Table *tb = TCB_Table_Create();
+    in_addr_t src_addr = inet_addr("192.168.100.53");
+    uint16_t src_port = 1111;
+    in_addr_t dest_addr = inet_addr("192.168.100.52");
+    uint16_t dest_port = 2222;
 
     TCB_Key key = {
-        .s_addr = 0,
-        .s_port = 0,
-        .d_addr = 0,
-        .d_port = 0,
+        .s_addr = src_addr,
+        .s_port = src_port,
+        .d_addr = dest_addr,
+        .d_port = dest_port,
+    };
+    TCB tcb = {
+        .state = TCP_STATE_LISTEN,
     };
 
-    TCB tcb = {};
+    TCB_Table_Set(table, &key, &tcb);
 
-    TCB_Table_Set(tb, &key, &tcb);
+    ASSERT_EQ(TCB_Table_Get(table, &key)->state, TCP_STATE_LISTEN);
 
-    TCB_Table_Print(tb);
+    tcb.state = TCP_STATE_CLOSED;
+    TCB_Table_Set(table, &key, &tcb);
 
-    tcb.state = TCP_STATE_ESTABLISHED;
-    TCB_Table_Set(tb, &key, &tcb);
+    ASSERT_EQ(TCB_Table_Get(table, &key)->state, TCP_STATE_CLOSED);
 
-    TCB_Table_Print(tb);
+    ASSERT(TCB_Table_Delete(table, &key));
+    ASSERT_EQ(TCB_Table_Get(table, &key), NULL);
 
-    // @todo add assertions
-
-    TCB_Table_Free(tb);
+    TCB_Table_Free(table);
 }
 
-// @todo implement
-void test_tcb_table_get(void) {}
+/**
+ * @brief Test CRUD operations on a TCB table on key collisions
+ *
+ * Test setting, getting, updating, and deleting records from a TCB table
+ * where two keys collide
+ */
+void test_tcb_table_collision_crud(void) {
+    // create small table to force collions
+    TCB_Table *table = calloc(1, sizeof(TCB_Table));
+    table->capacity = 1;
+    table->entries = calloc(table->capacity, sizeof(TCB_Entry *));
 
-// @todo implement
-void test_tcb_table_delete(void) {}
+    ASSERT(table);
 
-// @todo implement
-void test_tcb_table_collision_set(void) {}
+    // insert the first item
+    in_addr_t src_addr_1 = inet_addr("192.168.100.53");
+    uint16_t src_port_1 = 1111;
+    in_addr_t dest_addr_1 = inet_addr("192.168.100.52");
+    uint16_t dest_port_1 = 2222;
 
-// @todo implement
-void test_tcb_table_collision_get(void) {}
+    TCB_Key key_1 = {
+        .s_addr = src_addr_1,
+        .s_port = src_port_1,
+        .d_addr = dest_addr_1,
+        .d_port = dest_port_1,
+    };
+    TCB tcb_1 = {
+        .state = TCP_STATE_LISTEN,
+    };
 
-// @todo implement
-void test_tcb_table_collision_delete(void) {}
+    TCB_Table_Set(table, &key_1, &tcb_1);
+
+    ASSERT_EQ(TCB_Table_Get(table, &key_1)->state, TCP_STATE_LISTEN);
+
+    // insert the second item
+    in_addr_t src_addr_2 = inet_addr("192.168.100.63");
+    uint16_t src_port_2 = 1111;
+    in_addr_t dest_addr_2 = inet_addr("192.168.100.62");
+    uint16_t dest_port_2 = 2222;
+
+    TCB_Key key_2 = {
+        .s_addr = src_addr_2,
+        .s_port = src_port_2,
+        .d_addr = dest_addr_2,
+        .d_port = dest_port_2,
+    };
+    TCB tcb_2 = {
+        .state = TCP_STATE_ESTABLISHED,
+    };
+
+    TCB_Table_Set(table, &key_2, &tcb_2);
+
+    ASSERT_EQ(TCB_Table_Get(table, &key_1)->state, TCP_STATE_LISTEN);
+    ASSERT_EQ(TCB_Table_Get(table, &key_2)->state, TCP_STATE_ESTABLISHED);
+
+    // make sure you can still update items
+    tcb_1.state = TCP_STATE_FIN_WAIT_1;
+    TCB_Table_Set(table, &key_1, &tcb_1);
+    tcb_2.state = TCP_STATE_FIN_WAIT_2;
+    TCB_Table_Set(table, &key_2, &tcb_2);
+
+    ASSERT_EQ(TCB_Table_Get(table, &key_1)->state, TCP_STATE_FIN_WAIT_1);
+    ASSERT_EQ(TCB_Table_Get(table, &key_2)->state, TCP_STATE_FIN_WAIT_2);
+
+    // make sure you can delete the first item in a bucket
+    ASSERT(TCB_Table_Delete(table, &key_1));
+    ASSERT_EQ(TCB_Table_Get(table, &key_1), NULL);
+    ASSERT_NEQ(TCB_Table_Get(table, &key_2), NULL);
+
+    // make sure you can delete the last item in a bucket
+    TCB_Table_Set(table, &key_1, &tcb_1);
+
+    ASSERT(TCB_Table_Delete(table, &key_2));
+    ASSERT_EQ(TCB_Table_Get(table, &key_2), NULL);
+    ASSERT_NEQ(TCB_Table_Get(table, &key_1), NULL);
+
+    // make sure you can delete items in the middle of a bucket
+    TCB_Table_Set(table, &key_2, &tcb_2);
+
+    // insert the second item
+    in_addr_t src_addr_3 = inet_addr("192.168.100.73");
+    uint16_t src_port_3 = 1111;
+    in_addr_t dest_addr_3 = inet_addr("192.168.100.72");
+    uint16_t dest_port_3 = 2222;
+
+    TCB_Key key_3 = {
+        .s_addr = src_addr_3,
+        .s_port = src_port_3,
+        .d_addr = dest_addr_3,
+        .d_port = dest_port_3,
+    };
+    TCB tcb_3 = {
+        .state = TCP_STATE_LAST_ACK,
+    };
+
+    TCB_Table_Set(table, &key_3, &tcb_3);
+    ASSERT_EQ(TCB_Table_Get(table, &key_3)->state, TCP_STATE_LAST_ACK);
+
+    ASSERT(TCB_Table_Delete(table, &key_2));
+    ASSERT_EQ(TCB_Table_Get(table, &key_2), NULL);
+    ASSERT_NEQ(TCB_Table_Get(table, &key_1), NULL);
+    ASSERT_NEQ(TCB_Table_Get(table, &key_3), NULL);
+
+    TCB_Table_Free(table);
+}
