@@ -17,7 +17,7 @@ typedef void (*test_fn)(void);
 typedef struct {
     const char *name;
     test_fn fn;
-} test_t;
+} Test_Registry;
 
 #define ASSERT(condition)                                                                                              \
     do {                                                                                                               \
@@ -38,10 +38,10 @@ typedef struct {
 /* === TEST FUNCTIONS === */
 
 // TCP tests
-extern void test_tcp_header_flags(void);
+extern void Test_TCP_Header_Flags(void);
 
 // TCB tests
-extern void test_tcb_table_crud(void);
-extern void test_tcb_table_collision_crud(void);
+extern void Test_TCB_Table_CRUD(void);
+extern void Test_TCB_Table_Collision_CRUD(void);
 
 #endif

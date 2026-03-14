@@ -124,8 +124,6 @@ bool TCP_Send_Packet(int tun_fd, TCP_IP_Packet *packet) {
     return true;
 }
 
-void TCP_State_Listen() {}
-
 void TCP_Handle_Packet(int tun_fd, TCB_Table *tcb_table, TCP_IP_Packet *packet) {
     TCB_Key key = {
         .s_addr = packet->ip_header.saddr,

@@ -15,7 +15,7 @@
  *
  * Test setting, getting, updating, and deleting records from a TCB table
  */
-void test_tcb_table_crud(void) {
+void Test_TCB_Table_CRUD(void) {
     TCB_Table *table = TCB_Table_Create();
     ASSERT(table);
 
@@ -55,7 +55,7 @@ void test_tcb_table_crud(void) {
  * Test setting, getting, updating, and deleting records from a TCB table
  * where two keys collide
  */
-void test_tcb_table_collision_crud(void) {
+void Test_TCB_Table_Collision_CRUD(void) {
     // create small table to force collions
     TCB_Table *table = calloc(1, sizeof(TCB_Table));
     table->capacity = 1;

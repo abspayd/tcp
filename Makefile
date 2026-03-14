@@ -10,7 +10,7 @@ CFLAGS_DEBUG := -std=c99 -fsanitize=address -Wall -Wextra -Wpedantic -Wpadded -M
 CFLAGS_RELEASE := -std=c99 -O2 -Wall -Wextra -Wpedantic -Wpadded -MMD -MP -lmd
 INCLUDES := -I$(INCLUDE_DIR)
 
-SRCS := $(wildcard $(SRC_DIR)/*.c $(SRC_DIR)/util/*.c)
+SRCS := $(wildcard $(SRC_DIR)/*.c $(SRC_DIR)/util/*.c $(SRC_DIR)/tcp/*.c)
 OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 DEPS := $(OBJS:%.o=%.d)
 

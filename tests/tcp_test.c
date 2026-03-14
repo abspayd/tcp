@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-void test_tcp_header_flags(void) {
+void Test_TCP_Header_Flags(void) {
     ASSERT_EQ((TCP_OFFSET(0xF000)), 0x000F);
     ASSERT_EQ(TCP_CWR(0x0080), 1);
     ASSERT_EQ(TCP_ECE(0x0040), 1);
