@@ -15,13 +15,12 @@ OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 DEPS := $(OBJS:%.o=%.d)
 
 MAIN_OBJ := $(BUILD_DIR)/main.o
+SERVER_OBJ := $(BUILD_DIR)/server.o
+CLIENT_OBJ := $(BUILD_DIR)/client.o
 
-LIB_SRCS := $(filter-out $(SRC_DIR)/main.c,$(SRCS))
+LIB_SRCS := $(filter-out $(SRC_DIR)/main.c $(SRC_DIR)/server.c $(SRC_DIR)/client.c,$(SRCS))
 LIB_OBJS := $(LIB_SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 LIB_TARGET := $(BUILD_DIR)/libtcp.a
-
-$(info $(LIB_SRCS))
-$(info $(LIB_OBJS))
 
 TEST_INCLUDES := -I$(INCLUDE_DIR) -I$(TEST_DIR)
 TEST_SRCS := $(wildcard $(TEST_DIR)/*.c)
@@ -43,15 +42,23 @@ else
 endif
 
 TARGET := $(BIN_DIR)/tcp
+SERVER_TARGET := $(BIN_DIR)/server
+CLIENT_TARGET := $(BIN_DIR)/client
 
 .PHONY: all test clean
 
-all: $(TARGET)
+all: $(TARGET) $(SERVER_TARGET) $(CLIENT_TARGET)
 
 $(BUILD_DIR)/$(LIB_TARGET):
 	$(CC) $(CFLAGS) $(INCLUDES) -c -o $@ $<
 
 $(TARGET): $(MAIN_OBJ) $(LIB_OBJS) | $(BIN_DIR)
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^
+
+$(SERVER_TARGET): $(SERVER_OBJ) $(LIB_OBJS) | $(BIN_DIR)
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^
+
+$(CLIENT_TARGET): $(CLIENT_OBJ) $(LIB_OBJS) | $(BIN_DIR)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
