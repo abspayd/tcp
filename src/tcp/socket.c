@@ -1,6 +1,5 @@
 #include "tcp/socket.h"
 #include "tcp/socket_internal.h"
-#include "tcp/tcb_table.h"
 #include "tcp/tcp.h"
 #include <assert.h>
 #include <netinet/in.h>
@@ -34,7 +33,7 @@ void TCP_Socket_Close(int socket_id) {
     }
 
     if (socket_count == 0) {
-        TCB_Table_Free(tcb_table);
+        TCP_Close();
     }
 }
 

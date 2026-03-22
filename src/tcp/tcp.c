@@ -2,9 +2,6 @@
 #include "tcp/tcp.h"
 #include "ip.h"
 #include "tcp/tcb_table.h"
-#include "tun.h"
-#include <net/if.h>
-
 #include <arpa/inet.h>
 #include <bits/endian.h>
 #include <bits/time.h>
@@ -29,6 +26,12 @@ bool TCP_Send_Packet(int tun_fd, TCP_IP_Packet *packet);
 void TCP_Init() {
     if (tcb_table == NULL) {
         tcb_table = TCB_Table_Create();
+    }
+}
+
+void TCP_Close() {
+    if (tcb_table != NULL) {
+        TCB_Table_Free(tcb_table);
     }
 }
 

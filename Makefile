@@ -14,7 +14,7 @@ SRCS := $(wildcard $(SRC_DIR)/*.c $(SRC_DIR)/util/*.c $(SRC_DIR)/tcp/*.c)
 OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 DEPS := $(OBJS:%.o=%.d)
 
-MAIN_OBJ := $(BUILD_DIR)/main.o
+# MAIN_OBJ := $(BUILD_DIR)/main.o
 SERVER_OBJ := $(BUILD_DIR)/server.o
 CLIENT_OBJ := $(BUILD_DIR)/client.o
 
@@ -41,7 +41,7 @@ else
     $(error Unsupported build mode: "$(MODE)". Please use one of the supported modes: RELEASE or DEBUG)
 endif
 
-TARGET := $(BIN_DIR)/tcp
+# TARGET := $(BIN_DIR)/tcp
 SERVER_TARGET := $(BIN_DIR)/server
 CLIENT_TARGET := $(BIN_DIR)/client
 
@@ -52,8 +52,8 @@ all: $(TARGET) $(SERVER_TARGET) $(CLIENT_TARGET)
 $(BUILD_DIR)/$(LIB_TARGET):
 	$(CC) $(CFLAGS) $(INCLUDES) -c -o $@ $<
 
-$(TARGET): $(MAIN_OBJ) $(LIB_OBJS) | $(BIN_DIR)
-	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^
+# $(TARGET): $(MAIN_OBJ) $(LIB_OBJS) | $(BIN_DIR)
+# 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^
 
 $(SERVER_TARGET): $(SERVER_OBJ) $(LIB_OBJS) | $(BIN_DIR)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^

@@ -11,5 +11,6 @@ extern void TCP_Handle_Packet(int tun_fd, TCB_Table *tcb_table, TCP_IP_Packet *p
 extern bool TCP_Unwrap_Packet(const char *buf, size_t buf_len, TCP_IP_Packet **packet);
 
 void TCP_Init();
+void TCP_Close();
 
 #endif
