@@ -2,6 +2,9 @@
 #include "tcp/tcp.h"
 #include "ip.h"
 #include "tcp/tcb_table.h"
+#include "tun.h"
+#include <net/if.h>
+
 #include <arpa/inet.h>
 #include <bits/endian.h>
 #include <bits/time.h>
@@ -23,11 +26,18 @@ void TCP_Pseudo_Header_Debug(Pseudo_IP_Header *pseudo_header);
 uint16_t TCP_Checksum(Pseudo_IP_Header *pseudo_header, TCP_Header *tcp_header, const char *payload, size_t payload_len);
 bool TCP_Send_Packet(int tun_fd, TCP_IP_Packet *packet);
 
+void TCP_Init() {
+    if (tcb_table == NULL) {
+        tcb_table = TCB_Table_Create();
+    }
+}
+
 int TCP_Get_Header(struct iphdr *ip_header, const char *buf, size_t buf_len, TCP_Header **tcp_header) {
     if (buf_len < sizeof(struct iphdr) + sizeof(TCP_Header)) {
         printf("Buffer size %zu too small for TCP header\n", buf_len);
         return -1;
     }
+
     *tcp_header = (TCP_Header *)(buf + (ip_header->ihl * 4));
     return 0;
 }

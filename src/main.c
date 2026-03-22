@@ -10,13 +10,13 @@
 
 int main(void) {
     char dev[IFNAMSIZ] = TUN_DEVICE;
-    int tun_fd = tun_alloc(dev);
+    int tun_fd = TUN_Alloc(dev);
     if (tun_fd < 0) {
         perror("tun_alloc");
         return 1;
     }
 
-    if (set_dev_ip_addr(dev, "192.168.100.1") < 0) {
+    if (TUN_Set_Dev_IP_Addr(dev, "192.168.100.1") < 0) {
         perror("Unable to set address on tun device");
         return 1;
     }

@@ -7,8 +7,8 @@
 #include <netinet/in.h>
 
 extern int TCP_Socket_Create();
-extern int TCP_Socket_Recv(int socket, unsigned char *buf, size_t buf_len);
-extern int TCP_Socket_Send(int socket, unsigned char *buf, size_t buf_len);
+extern int TCP_Socket_Recv(int socket, char *buf, size_t buf_len);
+extern int TCP_Socket_Send(int socket, char *buf, size_t buf_len);
 extern void TCP_Socket_Close(int socket);
 
 // server

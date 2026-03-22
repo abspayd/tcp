@@ -1,6 +1,7 @@
 #include "tcp/socket.h"
 #include <arpa/inet.h>
 #include <stdio.h>
+#include <string.h>
 
 int main(void) {
     printf("Client\n");
@@ -20,6 +21,12 @@ int main(void) {
         .sin_port = 3000,
     };
     TCP_Socket_Connect(socket, &server_addr);
+
+    const size_t BUFFER_SIZE = 4096;
+    char buf[BUFFER_SIZE];
+    snprintf(buf, BUFFER_SIZE, "Hello! This is a test.");
+
+    TCP_Socket_Send(socket, buf, strlen(buf));
 
     TCP_Socket_Close(socket);
 

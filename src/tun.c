@@ -6,19 +6,44 @@
 #include <linux/sockios.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
-int tun_alloc(char *dev) {
+int TUN_Exists(char *dev) {
+    struct ifreq ifr;
+    int sock_fd, err;
+
+    sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock_fd < 0) {
+        perror("Failed to create socket");
+        return -1;
+    }
+
+    memset(&ifr, 0, sizeof(ifr));
+    if (*dev) {
+        strncpy(ifr.ifr_name, dev, IFNAMSIZ);
+    }
+
+    if ((err = ioctl(sock_fd, SIOCGIFINDEX, &ifr)) < 0) {
+        close(sock_fd);
+        return err;
+    }
+
+    close(sock_fd);
+    return ifr.ifr_ifindex;
+}
+
+int TUN_Alloc(char *dev) {
     // ip tuntap add dev 'dev' mode tun
     struct ifreq ifr;
     int fd, err;
 
     if ((fd = open("/dev/net/tun", O_RDWR)) < 0) {
-        perror("open");
+        perror("Failed to open TUN device");
         return -1;
     }
 
@@ -30,6 +55,7 @@ int tun_alloc(char *dev) {
     }
 
     if ((err = ioctl(fd, TUNSETIFF, &ifr)) < 0) {
+        perror("Error configuring TUN device");
         close(fd);
         return err;
     }
@@ -38,7 +64,7 @@ int tun_alloc(char *dev) {
     return fd;
 }
 
-int set_dev_ip_addr(const char *dev, const char *ip) {
+int TUN_Set_Dev_IP_Addr(const char *dev, const char *ip) {
     struct ifreq ifr;
     int sock_fd, err;
 

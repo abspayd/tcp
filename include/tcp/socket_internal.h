@@ -20,5 +20,6 @@ typedef struct {
 
 static TCP_Socket *sockets[MAX_SOCKETS];
 static int next_available_socket = 0;
+static int socket_count = 0;
 
 #endif

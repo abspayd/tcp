@@ -1,5 +1,7 @@
 #include "tcp/socket.h"
 #include "tcp/socket_internal.h"
+#include "tcp/tcb_table.h"
+#include "tcp/tcp.h"
 #include <assert.h>
 #include <netinet/in.h>
 #include <stdint.h>
@@ -7,11 +9,16 @@
 #include <stdlib.h>
 
 int TCP_Socket_Create() {
+    if (socket_count == 0) {
+        TCP_Init();
+    }
+
     TCP_Socket *socket = malloc(sizeof(TCP_Socket));
 
     int socket_id = next_available_socket++;
     sockets[socket_id] = socket;
 
+    socket_count++;
     return socket_id;
 }
 
@@ -20,15 +27,20 @@ void TCP_Socket_Close(int socket_id) {
     // TODO: do actual TCP disconnect
 
     free(sockets[socket_id]);
+    socket_count--;
 
     if (socket_id < next_available_socket) {
         next_available_socket = socket_id;
     }
+
+    if (socket_count == 0) {
+        TCB_Table_Free(tcb_table);
+    }
 }
 
-int TCP_Socket_Recv(int socket_id, unsigned char *buf, size_t buf_len) { return 0; }
+int TCP_Socket_Recv(int socket_id, char *buf, size_t buf_len) { return 0; }
 
-int TCP_Socket_Send(int socket_id, unsigned char *buf, size_t buf_len) { return 0; }
+int TCP_Socket_Send(int socket_id, char *buf, size_t buf_len) { return 0; }
 
 // server
 void TCP_Socket_Bind(int socket_id, struct sockaddr_in *addr) {
