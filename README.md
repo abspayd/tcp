@@ -4,7 +4,7 @@ An experimental handmade TCP/IP stack written in C.
 
 ## Features
 
-Here's what has been implemented so far:
+Implemented so far:
 
  - Berkely socket API
  - Berkely socket API
