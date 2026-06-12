@@ -2,13 +2,23 @@
 
 An experimental handmade TCP/IP stack written in C.
 
+## Installation
+
+**Prerequisites:** Linux, gcc
+
+```
+git clone https://github.com/abspayd/tcp.git
+cd tcp
+make
+```
+
 ## Features
 
 Implemented so far:
 
  - Berkely socket API
  - Berkely socket API
- - FNV-1A TCB hash table
+ - FNV-1A hash for TCB table
  - Checksum
  - Simple ICMP ping implementation
  - TCP 3-way handshake connection establishment
